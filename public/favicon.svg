@@ -1,0 +1,11 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="54" fill="#FF6B00"/>
+  
+  <g transform="translate(55, 50)">
+    <path d="M90 0H30C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60H60" 
+          stroke="white" stroke-width="22" stroke-linecap="round"/>
+    
+    <path d="M0 100H60C76.5685 100 90 86.5685 90 70C90 53.4315 76.5685 40 60 40H30" 
+          stroke="white" stroke-width="22" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,25 @@
+{
+  "name": "ssok",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@vite-pwa/nuxt": "^1.1.1",
+    "gsap": "^3.14.2",
+    "idb": "^8.0.3",
+    "jszip": "^3.10.1",
+    "nuxt": "^4.3.1",
+    "tesseract.js": "^7.0.0",
+    "vue": "^3.5.30",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "sass": "^1.97.3"
+  }
+}

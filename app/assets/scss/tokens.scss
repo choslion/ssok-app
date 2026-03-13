@@ -1,0 +1,51 @@
+// Design tokens — exposed as CSS variables on :root
+// Import this file via nuxt.config.ts additionalData (as *)
+// Do NOT write SCSS variables here — use CSS variables only.
+
+:root {
+  // Brand colors
+  --color-primary:     #FF6B00;
+  --color-primary-rgb: 255, 107, 0;
+
+  // Backgrounds
+  --color-bg:          #F8F9FA;
+  --color-surface:     #FFFFFF;
+
+  // Text
+  --color-text:        #212529;
+  --color-sub:         #868E96;
+
+  // Button text
+  --color-btn-text:    #FFFFFF;
+
+  // Border
+  --color-border:      #DEE2E6;
+
+  // Spacing scale
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  // Border radius
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-full: 9999px;
+
+  // Shadows
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-fab:  0 4px 16px rgba(255, 107, 0, 0.35);
+
+  // Transitions
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+
+  // Layout
+  --max-content-width: 768px;
+  --header-height: 56px;
+  --fab-size: 56px;
+}
