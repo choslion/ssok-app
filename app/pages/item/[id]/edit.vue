@@ -189,8 +189,16 @@ const itemId = route.params.id as string
 
 // ── composables ───────────────────────────────────────────────────────────────
 
-const { getItem, updateItem } = useItems()
-const { allTopicChips, addCustomTopic } = useCustomTopics()
+const { getItem, updateItem, getTopics } = useItems()
+const { addCustomTopic, effectiveDefaultTopics } = useCustomTopics()
+
+// 실제 아이템에 존재하는 제품군만 표시 (기본 제품군은 항상 표시)
+const allTopicChips = computed<string[]>(() => {
+  const defaults = effectiveDefaultTopics.value
+  const seen = new Set(defaults.map(t => t.toLowerCase()))
+  const extra = getTopics().filter(t => !seen.has(t.toLowerCase()))
+  return [...defaults, ...extra]
+})
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 

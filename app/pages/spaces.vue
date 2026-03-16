@@ -503,7 +503,8 @@ const allSpaces = computed<SpaceEntry[]>(() => {
     result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
   }
 
-  return result
+  // 아이템이 없는 공간 카드는 숨김
+  return result.filter(entry => entry.count > 0)
 })
 
 // ── 제품 목록 + 카운트 ──────────────────────────────────────────────────────
@@ -550,7 +551,8 @@ const allTopics = computed<SpaceEntry[]>(() => {
     result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
   }
 
-  return result
+  // 아이템이 없는 제품 카드는 숨김
+  return result.filter(entry => entry.count > 0)
 })
 
 // ── 필터된 항목 ───────────────────────────────────────────────────────────────

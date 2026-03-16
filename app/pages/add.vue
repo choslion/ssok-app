@@ -314,19 +314,35 @@ import type { OcrResult, OcrProgress } from '~/composables/useOcr.client'
 // ── composables ───────────────────────────────────────────────────────────────
 
 const router = useRouter()
-const { saveItem, loadItems, getTopics } = useItems()
+const { items, saveItem, loadItems, getTopics } = useItems()
 const { saveAttachment } = useAttachments()
 const { saveExtract } = useReceiptExtracts()
 const { recognize } = useOcr()
-const { allSpaceChips, addCustomSpace } = useCustomSpaces()
-const { allTopicChips: baseTopicChips, addCustomTopic } = useCustomTopics()
+const { addCustomSpace, effectiveDefaultSpaces } = useCustomSpaces()
+const { addCustomTopic, effectiveDefaultTopics } = useCustomTopics()
 
-// IndexedDB의 기존 topic도 칩 목록에 포함 (spaces와 동일한 소스)
 onMounted(() => loadItems())
+
+// 실제 아이템에 존재하는 공간만 표시 (기본 공간은 항상 표시)
+const allSpaceChips = computed<string[]>(() => {
+  const defaults = effectiveDefaultSpaces.value
+  const seen = new Set(defaults)
+  const extra: string[] = []
+  for (const item of items.value) {
+    if (item.space && !seen.has(item.space)) {
+      seen.add(item.space)
+      extra.push(item.space)
+    }
+  }
+  return [...defaults, ...extra]
+})
+
+// 실제 아이템에 존재하는 제품군만 표시 (기본 제품군은 항상 표시)
 const allTopicChips = computed<string[]>(() => {
-  const seen = new Set(baseTopicChips.value)
-  const extra = getTopics().filter(t => !seen.has(t))
-  return [...baseTopicChips.value, ...extra]
+  const defaults = effectiveDefaultTopics.value
+  const seen = new Set(defaults.map(t => t.toLowerCase()))
+  const extra = getTopics().filter(t => !seen.has(t.toLowerCase()))
+  return [...defaults, ...extra]
 })
 
 // ── template refs (for focus management) ──────────────────────────────────────
