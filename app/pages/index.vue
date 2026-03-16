@@ -6,11 +6,12 @@
       <div class="toolbar__search-wrap">
         <span class="toolbar__search-icon" aria-hidden="true">🔍</span>
         <input
-          v-model="search"
+          :value="search"
           class="toolbar__search"
           type="search"
           placeholder="제품명, 구매처 검색"
           aria-label="항목 검색"
+          @input="search = ($event.target as HTMLInputElement).value"
         />
         <button
           v-if="search"
