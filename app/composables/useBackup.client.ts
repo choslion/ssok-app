@@ -128,7 +128,7 @@ async function exportBackup(): Promise<void> {
     const total = attachments.length
     for (let i = 0; i < total; i++) {
       const att = attachments[i]!
-      const ext      = mimeToExt(att.mime)
+      const ext = mimeToExt(att.mime)
       const fileName = `attachments/${att.id}${ext}`
       attFolder.file(`${att.id}${ext}`, att.blob)
       attMeta.push({ id: att.id, itemId: att.itemId, kind: att.kind, type: att.type, mime: att.mime, createdAt: att.createdAt, fileName })
