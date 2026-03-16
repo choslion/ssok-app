@@ -84,7 +84,7 @@
         <input
           ref="fileInputRef"
           type="file"
-          accept=".ssok-backup"
+          accept=".zip,.ssok-backup"
           aria-hidden="true"
           tabindex="-1"
           style="display:none"
@@ -252,7 +252,7 @@ const proFeatures: ProFeature[] = [
   { id: 'encrypt',   icon: '🔐', label: '백업 파일 암호화',    desc: '백업 파일을 비밀번호로 암호화하여 안전하게 보관하세요.' },
   { id: 'gdrive',    icon: '☁️',  label: 'Google Drive 연동',  desc: 'Google Drive에 자동으로 백업하고 어디서든 복원하세요.' },
   { id: 'ocr',       icon: '✨',  label: 'OCR 고급',           desc: '더 정확한 텍스트 인식으로 영수증을 빠르게 처리하세요.' },
-  { id: 'imgtools',  icon: '✂️',  label: '이미지 크롭 / 회전', desc: '첨부 이미지를 직접 잘라내고 회전하여 깔끔하게 정리하세요.' },
+  // { id: 'imgtools',  icon: '✂️',  label: '이미지 크롭 / 회전', desc: '첨부 이미지를 직접 잘라내고 회전하여 깔끔하게 정리하세요.' },
   { id: 'storage',   icon: '📦',  label: '저장 한도 확장',     desc: '더 많은 영수증과 파일을 제한 없이 저장하세요.' },
 ]
 

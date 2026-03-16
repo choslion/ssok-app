@@ -125,7 +125,7 @@ async function exportBackup(): Promise<void> {
 
     // 4. 다운로드 (90 → 100%)
     exportStep.value = '다운로드 준비 중…'
-    const filename = `SSOK_Backup_${formatFilenameDate(now)}.ssok-backup`
+    const filename = `SSOK_Backup_${formatFilenameDate(now)}.zip`
     const url = URL.createObjectURL(zipBlob)
     const a = document.createElement('a')
     a.href = url; a.download = filename
@@ -215,7 +215,7 @@ async function importBackup(file: File): Promise<void> {
     try {
       zip = await JSZip.loadAsync(file)
     } catch {
-      throw new Error('ZIP 파일을 읽을 수 없습니다. 올바른 .ssok-backup 파일인지 확인해 주세요.')
+      throw new Error('ZIP 파일을 읽을 수 없습니다. SSOK 백업 파일(.zip)인지 확인해 주세요.')
     }
     importProgress.value = 10
 
