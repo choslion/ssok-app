@@ -47,12 +47,12 @@
             <p v-if="errors.title" id="f-name-error" class="field__error" role="alert">{{ errors.title }}</p>
           </div>
 
-          <!-- 제품군 -->
+          <!-- 제품 -->
           <div class="field">
             <label class="field__label">
-              제품군 <span class="form-section__optional">(선택)</span>
+              제품 <span class="form-section__optional">(선택)</span>
             </label>
-            <div class="topic-chips" role="group" aria-label="제품군 선택">
+            <div class="topic-chips" role="group" aria-label="제품 선택">
               <button
                 v-for="t in allTopicChips"
                 :key="t"
@@ -70,9 +70,9 @@
                 :class="{ 'field__input--clearable': topicCustom }"
                 type="text"
                 placeholder="예: TV, 냉장고, 세탁기"
-                aria-label="제품군 직접 입력"
+                aria-label="제품 직접 입력"
               />
-              <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품군 지우기" @click="topicCustom = ''; topicChip = ''">✕</button>
+              <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''; topicChip = ''">✕</button>
             </div>
           </div>
 
@@ -208,7 +208,7 @@ const form = reactive({
   price: undefined as number | undefined,
 })
 
-// 제품군: 직접 입력 또는 칩 선택
+// 제품: 직접 입력 또는 칩 선택
 const topicCustom = ref('')
 const topicChip = ref('')
 const formTopic = computed(() => topicCustom.value.trim() || topicChip.value)
@@ -265,7 +265,7 @@ function warrantyEndDate(purchaseDate: string, months: number): string {
   return d.toISOString().split('T')[0] ?? ''
 }
 
-// ── 제품군 선택 ────────────────────────────────────────────────────────────────
+// ── 제품 선택 ────────────────────────────────────────────────────────────────
 
 function toggleTopicChip(topic: string): void {
   topicChip.value = topicChip.value === topic ? '' : topic
@@ -527,7 +527,7 @@ async function submit(): Promise<void> {
   margin-left: 2px;
 }
 
-// ── 제품군 칩 ──────────────────────────────────────────────────────────────────
+// ── 제품 칩 ──────────────────────────────────────────────────────────────────
 
 .topic-chips {
   display: flex;

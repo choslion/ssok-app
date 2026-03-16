@@ -10,7 +10,7 @@
     </div>
 
     <!-- 항목 종류 선택 (필수) -->
-    <div class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
+    <div ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
       <button
         v-for="t in TYPE_OPTIONS"
         :key="t.value"
@@ -28,18 +28,18 @@
       <section class="form-section">
         <h2 class="form-section__heading">기본 정보</h2>
 
-        <!-- 제품군 -->
+        <!-- 제품 -->
         <div class="field">
           <label class="field__label">
-            제품군 <span class="form-section__optional">(선택)</span>
+            제품 <span class="form-section__optional">(선택)</span>
           </label>
           <p class="field__hint">예: TV, 냉장고, 에어프라이어</p>
           <ChipRow
             v-model="topicChipComputed"
             :chips="allTopicChips"
-            group-label="제품군 빠른 선택"
-            expand-label="제품군 목록 더 보기"
-            collapse-label="제품군 목록 접기"
+            group-label="제품 빠른 선택"
+            expand-label="제품 목록 더 보기"
+            collapse-label="제품 목록 접기"
           />
           <div class="field__input-wrap topic-custom-input">
             <input
@@ -48,9 +48,9 @@
               :class="{ 'field__input--clearable': topicCustom }"
               type="text"
               placeholder="직접 입력"
-              aria-label="제품군 직접 입력"
+              aria-label="제품 직접 입력"
             />
-            <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품군 지우기" @click="topicCustom = ''">✕</button>
+            <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''">✕</button>
           </div>
         </div>
 
@@ -326,6 +326,7 @@ const { allTopicChips, addCustomTopic } = useCustomTopics()
 
 const titleInput = ref<HTMLInputElement | null>(null)
 const dateInput = ref<HTMLInputElement | null>(null)
+const typeSelectorRef = ref<HTMLElement | null>(null)
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -356,7 +357,7 @@ const spaceChipComputed = computed({
   set: (val: string) => { spaceChip.value = val; spaceCustom.value = '' },
 })
 
-// 제품군: 칩 선택 또는 직접 입력, 직접 입력이 우선
+// 제품: 칩 선택 또는 직접 입력, 직접 입력이 우선
 const topicChip = ref('')
 const topicCustom = ref('')
 const formTopic = computed(() => topicCustom.value.trim() || topicChip.value)
@@ -417,9 +418,13 @@ function selectType(t: ItemDocType): void {
   for (const pf of pendingFiles.value) {
     pf.docType = t as AttachmentDocType
   }
-  // 종류 변경 시 상단으로 부드럽게 스크롤 (구매일 필드로 강제 포커스 이동 제거)
+  // 종류 변경 시 type-selector가 상단에서 24px 아래에 오도록 스크롤
   nextTick(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const el = typeSelectorRef.value
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - el.scrollHeight - 24
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    }
   })
 }
 
@@ -553,7 +558,7 @@ async function submit(): Promise<void> {
 
     await saveItem(item)
 
-    // 직접 입력한 공간/제품군이 있으면 다음 방문 시 칩으로 표시되도록 저장
+    // 직접 입력한 공간/제품이 있으면 다음 방문 시 칩으로 표시되도록 저장
     if (spaceCustom.value.trim()) addCustomSpace(spaceCustom.value.trim())
     if (topicCustom.value.trim()) addCustomTopic(topicCustom.value.trim())
 

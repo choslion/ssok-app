@@ -34,13 +34,13 @@
         to="/spaces"
         class="tab-bar__tab"
         :class="{ 'tab-bar__tab--active': route.path === '/spaces' }"
-        aria-label="공간"
+        aria-label="보관함"
       >
         <svg class="tab-bar__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
           <path d="M3 7l9-4 9 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span class="tab-bar__label">공간</span>
+        <span class="tab-bar__label">보관함</span>
       </NuxtLink>
 
       <NuxtLink
@@ -55,13 +55,13 @@
         to="/expiring"
         class="tab-bar__tab"
         :class="{ 'tab-bar__tab--active': route.path === '/expiring' }"
-        aria-label="만료 예정 항목"
+        aria-label="보증 알림"
       >
         <svg class="tab-bar__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
           <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span class="tab-bar__label">만료 예정</span>
+        <span class="tab-bar__label">보증 알림</span>
       </NuxtLink>
 
       <NuxtLink

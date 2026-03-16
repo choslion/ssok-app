@@ -13,10 +13,17 @@
 
     <!-- 빈 상태 -->
     <div v-else-if="!expiring.length" class="empty-state">
-      <p class="empty-state__icon" aria-hidden="true">✅</p>
-      <p class="empty-state__title">만료 임박 항목이 없습니다.</p>
-      <p class="empty-state__hint">보증 기간이 30일 이상 남은 항목만 있거나, 아직 항목을 추가하지 않으셨어요.</p>
-      <NuxtLink to="/" class="empty-state__link">전체 목록 보기</NuxtLink>
+      <div class="empty-state__icon" aria-hidden="true">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="10" width="40" height="36" rx="5" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+          <path d="M8 20h40" stroke="currentColor" stroke-width="2.4"/>
+          <path d="M18 10V6M38 10V6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M20 31l5 5 11-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p class="empty-state__title">만료가 가까운 항목이 없어요</p>
+      <p class="empty-state__hint">보증 기간이 30일 이내로 남은 항목이 없어요.</p>
+      <NuxtLink to="/" class="empty-state__link">전체 항목 보기</NuxtLink>
     </div>
 
     <!-- 카드 목록 -->
@@ -42,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '만료 · SSOK' })
+useHead({ title: '보증 알림 · SSOK' })
 import type { Item } from '~~/shared/types/ssok'
 import { formatDate, formatAmount } from '~~/shared/utils/format'
 
@@ -121,8 +128,10 @@ const expiring = computed<Item[]>(() =>
   gap: var(--space-3);
 
   &__icon {
-    font-size: 2.5rem;
+    color: var(--color-primary);
     line-height: 1;
+
+    svg { display: block; }
   }
 
   &__title {

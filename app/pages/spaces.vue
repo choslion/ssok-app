@@ -4,12 +4,17 @@
     <!-- 페이지 헤더 + 모드 토글 (우상단 inline) -->
     <div class="spaces-page__header">
       <div class="spaces-page__header-meta">
-        <h1 class="spaces-page__title">둘러보기</h1>
+        <h1 class="spaces-page__title">보관함</h1>
         <p class="spaces-page__subtitle">
-          {{ browseMode === 'space' ? '공간별로 물건을 찾아보세요.' : '제품군별로 물건을 찾아보세요.' }}
+          {{ browseMode === 'space' ? '공간별로 물건을 찾아보세요.' : '제품별로 물건을 찾아보세요.' }}
         </p>
       </div>
-      <div class="mode-toggle" role="group" aria-label="보기 모드 선택">
+      <div
+        class="mode-toggle"
+        :class="{ 'mode-toggle--topic': browseMode === 'topic' }"
+        role="group"
+        aria-label="보기 모드 선택"
+      >
         <button
           type="button"
           class="mode-btn"
@@ -23,7 +28,7 @@
           :class="{ 'mode-btn--active': browseMode === 'topic' }"
           :aria-pressed="browseMode === 'topic'"
           @click="switchMode('topic')"
-        >제품군</button>
+        >제품</button>
       </div>
     </div>
 
@@ -75,9 +80,9 @@
         <p v-else class="spaces-status">이 공간에 등록된 물건이 없어요.</p>
       </template>
 
-      <!-- ── 제품군 카드 그리드 ───────────────────────────────────────── -->
+      <!-- ── 제품 카드 그리드 ───────────────────────────────────────── -->
       <template v-else>
-        <ul v-if="allTopics.length" ref="topicListRef" class="space-list" aria-label="제품군 목록">
+        <ul v-if="allTopics.length" ref="topicListRef" class="space-list" aria-label="제품 목록">
           <li v-for="tp in allTopics" :key="tp.name">
             <button
               type="button"
@@ -107,7 +112,7 @@
             </button>
           </li>
         </ul>
-        <p v-else class="spaces-status">등록된 제품군이 없어요. 항목 추가 시 제품군을 입력해 보세요.</p>
+        <p v-else class="spaces-status">등록된 제품이 없어요. 항목 추가 시 제품을 입력해 보세요.</p>
       </template>
 
     </template>
@@ -123,13 +128,14 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '둘러보기 · SSOK' })
+useHead({ title: '보관함 · SSOK' })
 import type { Item, ItemDocType } from '~~/shared/types/ssok'
 import { TYPE_LABELS } from '~~/shared/utils/format'
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
 const DEFAULT_SPACES = ['거실', '주방'] as const
+const DEFAULT_TOPICS = ['TV', '냉장고'] as const
 const ALL_TYPES: ItemDocType[] = ['receipt', 'warranty', 'manual']
 
 // ChipRow 용 타입 필터 매핑
@@ -287,12 +293,14 @@ const allSpaces = computed<SpaceEntry[]>(() => {
   return result
 })
 
-// ── 제품군 목록 + 카운트 ──────────────────────────────────────────────────────
+// ── 제품 목록 + 카운트 ──────────────────────────────────────────────────────
 // getTopics()로 정렬/중복 제거된 이름 목록을 받아 카운트만 계산
 
 const { getTopics } = useItems()
 
 const allTopics = computed<SpaceEntry[]>(() => {
+  const defaults = new Set<string>(DEFAULT_TOPICS)
+
   function countFor(filterFn: (i: Item) => boolean): number {
     return items.value.filter(i => {
       if (activeType.value && i.type !== activeType.value) return false
@@ -300,11 +308,17 @@ const allTopics = computed<SpaceEntry[]>(() => {
     }).length
   }
 
-  const result: SpaceEntry[] = getTopics().map(name => ({
+  const result: SpaceEntry[] = (DEFAULT_TOPICS as readonly string[]).map(name => ({
     name,
     count: countFor(i => i.topic === name),
     unclassified: false,
   }))
+
+  for (const name of getTopics()) {
+    if (!defaults.has(name)) {
+      result.push({ name, count: countFor(i => i.topic === name), unclassified: false })
+    }
+  }
 
   const unclassifiedCount = countFor(i => !i.topic)
   if (unclassifiedCount > 0) {
@@ -371,17 +385,44 @@ const filteredItems = computed<Item[]>(() => {
 // ── 모드 토글 ──────────────────────────────────────────────────────────────────
 
 .mode-toggle {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr; // 텍스트 길이 무관 정확한 50/50
   flex-shrink: 0;
   align-self: flex-start;
   margin-top: var(--space-1);
+  padding: 3px;
+  background: var(--color-bg);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-full);
-  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  // 슬라이딩 pill — 활성 버튼 아래에서 좌우로 이동
+  &::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    background: var(--color-surface);
+    border-radius: var(--radius-full);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    transition: transform var(--transition-base);
+    pointer-events: none;
+  }
+
+  // 제품 모드: pill을 오른쪽으로 이동 (translateX(100%) = pill 자신의 너비만큼)
+  &--topic::before {
+    transform: translateX(100%);
+  }
 }
 
 .mode-btn {
-  padding: var(--space-1) var(--space-3);
+  position: relative; // pill 위에 렌더링
+  z-index: 1;
+  flex: 1; // 50/50 등분
+  padding: 5px var(--space-3);
   font-size: 0.8125rem;
   font-family: inherit;
   font-weight: 500;
@@ -389,11 +430,12 @@ const filteredItems = computed<Item[]>(() => {
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  text-align: center;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast);
 
   &--active {
     color: var(--color-primary);
-    background: rgba(255, 107, 0, 0.08);
     font-weight: 600;
   }
 
