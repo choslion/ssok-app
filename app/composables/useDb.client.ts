@@ -24,6 +24,11 @@ interface SsokDB extends DBSchema {
     key: string
     value: ReceiptExtract
   }
+  // App settings / UI state — replaces localStorage
+  settings: {
+    key: string
+    value: { key: string; value: unknown }
+  }
 }
 
 // ── Singleton connection ───────────────────────────────────────────────────────
@@ -34,7 +39,7 @@ let _db: IDBPDatabase<SsokDB> | null = null
 export const useDb = async (): Promise<IDBPDatabase<SsokDB>> => {
   if (_db) return _db
 
-  _db = await openDB<SsokDB>('ssok-db', 3, {
+  _db = await openDB<SsokDB>('ssok-db', 4, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         // Fresh install — create all stores
@@ -47,11 +52,12 @@ export const useDb = async (): Promise<IDBPDatabase<SsokDB>> => {
         attachmentStore.createIndex('itemId', 'itemId')
 
         db.createObjectStore('receiptExtracts', { keyPath: 'attachmentId' })
+        db.createObjectStore('settings', { keyPath: 'key' })
       } else if (oldVersion === 1) {
         // v1 → v2: replace categoryId index with type on items store
         const itemStore = transaction.objectStore('items')
-        if (itemStore.indexNames.contains('categoryId')) {
-          itemStore.deleteIndex('categoryId')
+        if ((itemStore.indexNames as DOMStringList).contains('categoryId')) {
+          itemStore.deleteIndex('categoryId' as never)
         }
         if (!itemStore.indexNames.contains('type')) {
           itemStore.createIndex('type', 'type')
@@ -62,6 +68,12 @@ export const useDb = async (): Promise<IDBPDatabase<SsokDB>> => {
         const itemStore = transaction.objectStore('items')
         if (!itemStore.indexNames.contains('space')) {
           itemStore.createIndex('space', 'space')
+        }
+      }
+      if (oldVersion < 4) {
+        // v3 → v4: add settings store (replaces localStorage)
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' })
         }
       }
     },

@@ -1,3 +1,4 @@
+import { toRaw } from 'vue'
 import type { Item } from '~~/shared/types/ssok'
 
 // Global list of items — metadata only, no Blobs.
@@ -48,7 +49,7 @@ export const useItems = () => {
     const db = await useDb()
     const toUpdate = items.value.filter(i => i.space === oldName)
     for (const item of toUpdate) {
-      const updated: Item = { ...item, space: newName }
+      const updated: Item = { ...toRaw(item), space: newName }
       await db.put('items', updated)
       const idx = items.value.findIndex(i => i.id === item.id)
       if (idx >= 0) items.value[idx] = updated
@@ -60,7 +61,7 @@ export const useItems = () => {
     const db = await useDb()
     const toUpdate = items.value.filter(i => i.topic === oldName)
     for (const item of toUpdate) {
-      const updated: Item = { ...item, topic: newName }
+      const updated: Item = { ...toRaw(item), topic: newName }
       await db.put('items', updated)
       const idx = items.value.findIndex(i => i.id === item.id)
       if (idx >= 0) items.value[idx] = updated

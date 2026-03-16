@@ -6,11 +6,12 @@ const BACKUP_FORMAT_VERSION = 1
 
 const DB_META = {
   name: 'ssok-db',
-  version: 1,
+  version: 4,
   stores: {
-    items:           { keyPath: 'id',           indexes: ['purchaseDate', 'categoryId'] },
+    items:           { keyPath: 'id',           indexes: ['purchaseDate', 'type', 'space'] },
     attachments:     { keyPath: 'id',           indexes: ['itemId'] },
     receiptExtracts: { keyPath: 'attachmentId', indexes: [] },
+    settings:        { keyPath: 'key',          indexes: [] },
   },
 }
 
@@ -55,13 +56,29 @@ const importError      = ref<string | null>(null)
 const importSuccess    = ref(false)
 const importConfirming = ref(false)
 
-// 마지막 백업 시각 (localStorage 초기화)
-const lastBackupAt = ref<string | null>(
-  localStorage.getItem('ssok-last-backup-at'),
-)
+// 마지막 백업 시각 — IndexedDB settings 스토어에서 로드
+const lastBackupAt = ref<string | null>(null)
 const lastBackupLabel = computed(() =>
   lastBackupAt.value ? formatDisplayDate(lastBackupAt.value) : '없음',
 )
+
+let _lastBackupLoaded = false
+
+async function loadLastBackupAt(): Promise<void> {
+  const db = await useDb()
+  const entry = await db.get('settings', 'last-backup-at')
+  if (entry) {
+    lastBackupAt.value = entry.value as string
+    return
+  }
+  // 일회성 localStorage 마이그레이션
+  const legacy = localStorage.getItem('ssok-last-backup-at')
+  if (legacy) {
+    lastBackupAt.value = legacy
+    await db.put('settings', { key: 'last-backup-at', value: legacy })
+    localStorage.removeItem('ssok-last-backup-at')
+  }
+}
 
 // ── 내보내기 ─────────────────────────────────────────────────────────────────
 
@@ -76,10 +93,11 @@ async function exportBackup(): Promise<void> {
   try {
     // 1. IndexedDB 전체 로드 (0 → 20%)
     const db = await useDb()
-    const [items, attachments, extracts] = await Promise.all([
+    const [items, attachments, extracts, settings] = await Promise.all([
       db.getAll('items'),
       db.getAll('attachments'),
       db.getAll('receiptExtracts'),
+      db.getAll('settings'),
     ])
     exportProgress.value = 20
 
@@ -90,12 +108,16 @@ async function exportBackup(): Promise<void> {
     const now = new Date()
 
     zip.file('meta.json', JSON.stringify({
+      backupFormat: 'ssok-backup',
       backupFormatVersion: BACKUP_FORMAT_VERSION,
       exportedAt: now.toISOString(),
       db: DB_META,
     }, null, 2))
     zip.file('items.json', JSON.stringify(items, null, 2))
     zip.file('receiptExtracts.json', JSON.stringify(extracts, null, 2))
+    // last-backup-at 은 기기별 값이므로 settings에서 제외
+    const settingsToExport = settings.filter(s => s.key !== 'last-backup-at')
+    zip.file('settings.json', JSON.stringify(settingsToExport, null, 2))
 
     const attFolder = zip.folder('attachments')!
     const attMeta: Array<{
@@ -135,7 +157,7 @@ async function exportBackup(): Promise<void> {
     exportProgress.value = 100
     exportStep.value = '완료!'
     const nowIso = now.toISOString()
-    localStorage.setItem('ssok-last-backup-at', nowIso)
+    await db.put('settings', { key: 'last-backup-at', value: nowIso })
     lastBackupAt.value = nowIso
 
     await new Promise<void>(r => setTimeout(r, 1500))
@@ -199,6 +221,11 @@ function cancelImport(): void {
   importConfirming.value = false
 }
 
+// Dev note: Mobile file pickers (Android/iOS) often ignore custom extensions like
+// .ssok-backup because they are not in the OS MIME-type registry. The file input
+// `accept` attribute should include standard MIME types (application/zip,
+// application/x-zip-compressed) so the picker shows ZIP files regardless of extension.
+// Validation relies on ZIP structure + meta.json content, NOT the file extension.
 async function importBackup(file: File): Promise<void> {
   if (isImporting.value) return
 
@@ -244,6 +271,16 @@ async function importBackup(file: File): Promise<void> {
     try { attMeta  = JSON.parse(attMetaText)  } catch { throw new Error('attachments.json을 읽을 수 없습니다.') }
     try { extracts = JSON.parse(extractsText) } catch { throw new Error('receiptExtracts.json을 읽을 수 없습니다.') }
 
+    // settings.json (선택적 — 구 백업 파일에는 없을 수 있음)
+    let settingsData: Array<{ key: string; value: unknown }> | null = null
+    const settingsFile = zip.file('settings.json')
+    if (settingsFile) {
+      try {
+        const parsed = JSON.parse(await settingsFile.async('text')) as unknown
+        if (Array.isArray(parsed)) settingsData = parsed as Array<{ key: string; value: unknown }>
+      } catch { /* 무시 — settings 복원 건너뜀 */ }
+    }
+
     // 4. 스키마 무결성 검사
     validateBackup(zip, items, attMeta, extracts)
     importProgress.value = 25
@@ -254,6 +291,8 @@ async function importBackup(file: File): Promise<void> {
     await db.clear('items')
     await db.clear('attachments')
     await db.clear('receiptExtracts')
+    // settings는 백업에 있을 때만 교체 (구 백업 호환성)
+    if (settingsData !== null) await db.clear('settings')
     importProgress.value = 30
 
     // 6. items 복원 (30 → 35%)
@@ -283,14 +322,26 @@ async function importBackup(file: File): Promise<void> {
       importProgress.value = 35 + Math.round(((i + 1) / Math.max(total, 1)) * 45)
     }
 
-    // 8. receiptExtracts 복원 (80 → 90%)
+    // 8. receiptExtracts 복원 (80 → 88%)
     importStep.value = '추출 데이터 복원 중…'
     for (const ex of extracts as ReceiptExtract[]) {
       await db.put('receiptExtracts', ex)
     }
-    importProgress.value = 90
+    importProgress.value = 88
 
-    // 9. 전역 items 상태 갱신 (다른 페이지에서 즉시 반영)
+    // 9. settings 복원 (88 → 92%)
+    if (settingsData !== null) {
+      importStep.value = '설정 복원 중…'
+      for (const entry of settingsData) {
+        await db.put('settings', entry)
+      }
+      // 반응형 상태 갱신 — 각 composable의 로드 프로미스를 초기화하여 재로드 유도
+      // (useCustomSpaces / useCustomTopics는 모듈-레벨 캐시를 갖고 있으므로 직접 재로드)
+      await reloadSettingsState(db)
+    }
+    importProgress.value = 92
+
+    // 10. 전역 items 상태 갱신 (92 → 100%)
     await useItems().loadItems()
     importProgress.value = 100
     importStep.value = '복원 완료!'
@@ -309,26 +360,59 @@ async function importBackup(file: File): Promise<void> {
   }
 }
 
+// settings 복원 후 반응형 상태 직접 갱신
+async function reloadSettingsState(db: Awaited<ReturnType<typeof useDb>>): Promise<void> {
+  const getVal = async (key: string) => (await db.get('settings', key))?.value
+
+  // useCustomSpaces 상태
+  const spaces = await getVal('custom-spaces')
+  if (Array.isArray(spaces)) {
+    useState<string[]>('customSpaces').value = spaces as string[]
+  }
+  const renamedSpaces = await getVal('renamed-default-spaces')
+  if (renamedSpaces && typeof renamedSpaces === 'object' && !Array.isArray(renamedSpaces)) {
+    useState<Record<string, string>>('renamedDefaultSpaces').value = renamedSpaces as Record<string, string>
+  }
+
+  // useCustomTopics 상태
+  const topics = await getVal('custom-topics')
+  if (Array.isArray(topics)) {
+    useState<string[]>('customTopics').value = topics as string[]
+  }
+  const renamedTopics = await getVal('renamed-default-topics')
+  if (renamedTopics && typeof renamedTopics === 'object' && !Array.isArray(renamedTopics)) {
+    useState<Record<string, string>>('renamedDefaultTopics').value = renamedTopics as Record<string, string>
+  }
+}
+
 // ── 컴포저블 인터페이스 ────────────────────────────────────────────────────────
 
-export const useBackup = () => ({
-  // 내보내기
-  isExporting:    readonly(isExporting),
-  exportProgress: readonly(exportProgress),
-  exportStep:     readonly(exportStep),
-  exportError:    readonly(exportError),
-  exportBackup,
-  // 가져오기
-  isImporting:      readonly(isImporting),
-  importProgress:   readonly(importProgress),
-  importStep:       readonly(importStep),
-  importError:      readonly(importError),
-  importSuccess:    readonly(importSuccess),
-  importConfirming: readonly(importConfirming),
-  startImportConfirm,
-  cancelImport,
-  importBackup,
-  // 공통
-  lastBackupAt:   readonly(lastBackupAt),
-  lastBackupLabel,
-})
+export const useBackup = () => {
+  // 첫 호출 시 lastBackupAt 자동 로드
+  if (import.meta.client && !_lastBackupLoaded) {
+    _lastBackupLoaded = true
+    loadLastBackupAt().catch(console.error)
+  }
+
+  return {
+    // 내보내기
+    isExporting:    readonly(isExporting),
+    exportProgress: readonly(exportProgress),
+    exportStep:     readonly(exportStep),
+    exportError:    readonly(exportError),
+    exportBackup,
+    // 가져오기
+    isImporting:      readonly(isImporting),
+    importProgress:   readonly(importProgress),
+    importStep:       readonly(importStep),
+    importError:      readonly(importError),
+    importSuccess:    readonly(importSuccess),
+    importConfirming: readonly(importConfirming),
+    startImportConfirm,
+    cancelImport,
+    importBackup,
+    // 공통
+    lastBackupAt:   readonly(lastBackupAt),
+    lastBackupLabel,
+  }
+}

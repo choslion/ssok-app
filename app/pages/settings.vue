@@ -84,7 +84,7 @@
         <input
           ref="fileInputRef"
           type="file"
-          accept=".zip,.ssok-backup"
+          accept=".zip,application/zip,application/x-zip-compressed,.ssok-backup"
           aria-hidden="true"
           tabindex="-1"
           style="display:none"
