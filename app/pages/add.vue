@@ -315,12 +315,20 @@ import type { OcrResult, OcrProgress } from '~/composables/useOcr.client'
 // ── composables ───────────────────────────────────────────────────────────────
 
 const router = useRouter()
-const { saveItem } = useItems()
+const { saveItem, loadItems, getTopics } = useItems()
 const { saveAttachment } = useAttachments()
 const { saveExtract } = useReceiptExtracts()
 const { recognize } = useOcr()
 const { allSpaceChips, addCustomSpace } = useCustomSpaces()
-const { allTopicChips, addCustomTopic } = useCustomTopics()
+const { allTopicChips: baseTopicChips, addCustomTopic } = useCustomTopics()
+
+// IndexedDB의 기존 topic도 칩 목록에 포함 (spaces와 동일한 소스)
+onMounted(() => loadItems())
+const allTopicChips = computed<string[]>(() => {
+  const seen = new Set(baseTopicChips.value)
+  const extra = getTopics().filter(t => !seen.has(t))
+  return [...baseTopicChips.value, ...extra]
+})
 
 // ── template refs (for focus management) ──────────────────────────────────────
 

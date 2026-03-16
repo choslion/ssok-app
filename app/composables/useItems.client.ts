@@ -43,6 +43,30 @@ export const useItems = () => {
     items.value = items.value.filter(i => i.id !== id)
   }
 
+  // 공간 이름 일괄 변경 — oldName을 가진 모든 항목을 newName으로 업데이트
+  const renameSpace = async (oldName: string, newName: string): Promise<void> => {
+    const db = await useDb()
+    const toUpdate = items.value.filter(i => i.space === oldName)
+    for (const item of toUpdate) {
+      const updated: Item = { ...item, space: newName }
+      await db.put('items', updated)
+      const idx = items.value.findIndex(i => i.id === item.id)
+      if (idx >= 0) items.value[idx] = updated
+    }
+  }
+
+  // 제품 이름 일괄 변경 — oldName을 가진 모든 항목을 newName으로 업데이트
+  const renameTopic = async (oldName: string, newName: string): Promise<void> => {
+    const db = await useDb()
+    const toUpdate = items.value.filter(i => i.topic === oldName)
+    for (const item of toUpdate) {
+      const updated: Item = { ...item, topic: newName }
+      await db.put('items', updated)
+      const idx = items.value.findIndex(i => i.id === item.id)
+      if (idx >= 0) items.value[idx] = updated
+    }
+  }
+
   // 모든 항목에서 제품군 목록을 중복 없이 반환 (trim + case-fold 정규화, localeCompare 정렬)
   const getTopics = (): string[] => {
     const seen = new Map<string, string>() // lowercase key → trimmed display value
@@ -56,5 +80,5 @@ export const useItems = () => {
     return [...seen.values()].sort((a, b) => a.localeCompare(b))
   }
 
-  return { items, loadItems, getItem, saveItem, updateItem, deleteItem, getTopics }
+  return { items, loadItems, getItem, saveItem, updateItem, deleteItem, renameSpace, renameTopic, getTopics }
 }

@@ -96,7 +96,7 @@ const expiring = computed<Item[]>(() =>
   }
 
   &__title {
-    font-size: 1.125rem;
+    font-size: 1.5rem;
     font-weight: 800;
     color: var(--color-text);
     margin-bottom: var(--space-1);

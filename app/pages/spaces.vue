@@ -48,7 +48,7 @@
       <!-- ── 공간 카드 그리드 ─────────────────────────────────────────── -->
       <template v-if="browseMode === 'space'">
         <ul v-if="allSpaces.length" ref="spaceListRef" class="space-list" aria-label="보관 장소 목록">
-          <li v-for="sp in allSpaces" :key="sp.name">
+          <li v-for="sp in allSpaces" :key="sp.name" class="space-card-wrap">
             <button
               type="button"
               class="space-card"
@@ -75,6 +75,20 @@
                 <span class="space-card__count">{{ sp.count }}개</span>
               </div>
             </button>
+            <!-- 3-dot 메뉴: 미분류 제외 -->
+            <button
+              v-if="!sp.unclassified"
+              type="button"
+              class="space-card__menu-btn"
+              :aria-label="`${sp.name} 공간 이름 변경`"
+              @click.stop="openRenameModal(sp.name, $event)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="3" r="1.25" fill="currentColor"/>
+                <circle cx="8" cy="8" r="1.25" fill="currentColor"/>
+                <circle cx="8" cy="13" r="1.25" fill="currentColor"/>
+              </svg>
+            </button>
           </li>
         </ul>
         <p v-else class="spaces-status">이 공간에 등록된 물건이 없어요.</p>
@@ -83,7 +97,7 @@
       <!-- ── 제품 카드 그리드 ───────────────────────────────────────── -->
       <template v-else>
         <ul v-if="allTopics.length" ref="topicListRef" class="space-list" aria-label="제품 목록">
-          <li v-for="tp in allTopics" :key="tp.name">
+          <li v-for="tp in allTopics" :key="tp.name" class="space-card-wrap">
             <button
               type="button"
               class="space-card"
@@ -110,6 +124,20 @@
                 <span class="space-card__count">{{ tp.count }}개</span>
               </div>
             </button>
+            <!-- 3-dot 메뉴: 미분류 제외 -->
+            <button
+              v-if="!tp.unclassified"
+              type="button"
+              class="space-card__menu-btn"
+              :aria-label="`${tp.name} 제품 이름 변경`"
+              @click.stop="openRenameModal(tp.name, $event, 'topic')"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="3" r="1.25" fill="currentColor"/>
+                <circle cx="8" cy="8" r="1.25" fill="currentColor"/>
+                <circle cx="8" cy="13" r="1.25" fill="currentColor"/>
+              </svg>
+            </button>
           </li>
         </ul>
         <p v-else class="spaces-status">등록된 제품이 없어요. 항목 추가 시 제품을 입력해 보세요.</p>
@@ -124,6 +152,58 @@
       :items="filteredItems"
       @close="closeSheet"
     />
+
+    <!-- ── 공간 이름 변경 모달 ──────────────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition name="rename-fade">
+        <div
+          v-if="renameModalOpen"
+          class="rename-overlay"
+          aria-hidden="true"
+          @click="closeRenameModal"
+        />
+      </Transition>
+      <Transition name="rename-slide">
+        <div
+          v-if="renameModalOpen"
+          ref="renameModalEl"
+          class="rename-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rename-modal-title"
+          @keydown="onRenameKeydown"
+        >
+          <h2 id="rename-modal-title" class="rename-modal__title">{{ renameMode === 'topic' ? '제품 이름 변경' : '공간 이름 변경' }}</h2>
+          <div class="rename-modal__field">
+            <label for="rename-input" class="rename-modal__label">새 이름</label>
+            <input
+              id="rename-input"
+              ref="renameInputEl"
+              v-model="renameValue"
+              type="text"
+              class="rename-modal__input"
+              :class="{ 'rename-modal__input--error': renameError }"
+              maxlength="20"
+              autocomplete="off"
+              aria-required="true"
+              :aria-invalid="!!renameError"
+              :aria-describedby="renameError ? 'rename-error' : undefined"
+              @keydown.enter.prevent="submitRename"
+            />
+            <p
+              v-if="renameError"
+              id="rename-error"
+              class="rename-modal__error"
+              role="alert"
+            >{{ renameError }}</p>
+          </div>
+          <div class="rename-modal__actions">
+            <button type="button" class="rename-btn rename-btn--cancel" @click="closeRenameModal">취소</button>
+            <button type="button" class="rename-btn rename-btn--confirm" @click="submitRename">변경하기</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -134,8 +214,6 @@ import { TYPE_LABELS } from '~~/shared/utils/format'
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SPACES = ['거실', '주방'] as const
-const DEFAULT_TOPICS = ['TV', '냉장고'] as const
 const ALL_TYPES: ItemDocType[] = ['receipt', 'warranty', 'manual']
 
 // ChipRow 용 타입 필터 매핑
@@ -146,7 +224,8 @@ const TYPE_CHIPS = ['전체', ...ALL_TYPES.map(t => TYPE_LABELS[t])]
 
 // ── 데이터 로딩 (메타데이터만 — 블롭 미로딩) ─────────────────────────────────
 
-const { items, loadItems } = useItems()
+const { items, loadItems, renameSpace, renameTopic } = useItems()
+const { renameCustomSpace, effectiveDefaultSpaces } = useCustomSpaces()
 const loading = ref(true)
 const route = useRoute()
 const router = useRouter()
@@ -249,6 +328,115 @@ function closeSheet(): void {
   router.replace({ path: '/spaces', query })
 }
 
+// ── 공간/제품 이름 변경 ────────────────────────────────────────────────────────
+
+const renameModalOpen   = ref(false)
+const renameTargetSpace = ref('')
+const renameValue       = ref('')
+const renameError       = ref('')
+const renameMode        = ref<'space' | 'topic'>('space')
+const renameInputEl     = ref<HTMLInputElement | null>(null)
+const renameModalEl     = ref<HTMLElement | null>(null)
+const renameTriggerEl   = ref<HTMLElement | null>(null)
+
+function openRenameModal(name: string, e: Event, mode: 'space' | 'topic' = 'space'): void {
+  renameTargetSpace.value = name
+  renameValue.value = name
+  renameError.value = ''
+  renameMode.value = mode
+  renameTriggerEl.value = e.currentTarget as HTMLElement
+  renameModalOpen.value = true
+}
+
+function closeRenameModal(): void {
+  renameModalOpen.value = false
+  renameError.value = ''
+  nextTick(() => renameTriggerEl.value?.focus())
+}
+
+function onRenameKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') { closeRenameModal(); return }
+  if (e.key !== 'Tab' || !renameModalEl.value) return
+  const focusables = Array.from(
+    renameModalEl.value.querySelectorAll<HTMLElement>('input, button'),
+  )
+  if (!focusables.length) return
+  const first = focusables.at(0)
+  const last  = focusables.at(-1)
+  if (!first || !last) return
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last.focus() }
+  } else {
+    if (document.activeElement === last)  { e.preventDefault(); first.focus() }
+  }
+}
+
+watch(renameModalOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    renameInputEl.value?.select()
+  }
+})
+
+async function submitRename(): Promise<void> {
+  const newName = renameValue.value.trim()
+
+  if (!newName) {
+    renameError.value = '이름을 입력해 주세요.'
+    renameInputEl.value?.focus()
+    return
+  }
+  if (newName === renameTargetSpace.value) { closeRenameModal(); return }
+
+  const oldName = renameTargetSpace.value
+
+  if (renameMode.value === 'topic') {
+    const duplicate = allTopics.value.some(
+      t => !t.unclassified
+        && t.name !== oldName
+        && t.name.trim().toLowerCase() === newName.toLowerCase(),
+    )
+    if (duplicate) {
+      renameError.value = '이미 존재하는 이름입니다.'
+      renameInputEl.value?.focus()
+      return
+    }
+    await renameTopic(oldName, newName)
+    renameCustomTopic(oldName, newName)
+
+    // selectedTopic 상태 및 route query 동기화
+    if (selectedTopic.value === oldName) {
+      selectedTopic.value = newName
+      const query: Record<string, string> = { topic: newName }
+      if (activeType.value) query.type = activeType.value
+      router.replace({ path: '/spaces', query })
+    }
+  } else {
+    const duplicate = allSpaces.value.some(
+      s => !s.unclassified
+        && s.name !== oldName
+        && s.name.trim().toLowerCase() === newName.toLowerCase(),
+    )
+    if (duplicate) {
+      renameError.value = '이미 존재하는 이름입니다.'
+      renameInputEl.value?.focus()
+      return
+    }
+    await renameSpace(oldName, newName)
+    renameCustomSpace(oldName, newName)
+
+    // selectedSpace 상태 및 route query 동기화
+    if (selectedSpace.value === oldName) {
+      selectedSpace.value = newName
+      const query: Record<string, string> = { space: newName }
+      if (activeType.value) query.type = activeType.value
+      router.replace({ path: '/spaces', query })
+    }
+  }
+
+  closeRenameModal()
+}
+
 // ── 공간 목록 + 카운트 ────────────────────────────────────────────────────────
 
 interface SpaceEntry {
@@ -258,7 +446,9 @@ interface SpaceEntry {
 }
 
 const allSpaces = computed<SpaceEntry[]>(() => {
-  const defaults = new Set<string>(DEFAULT_SPACES)
+  // 이름 변경이 반영된 기본 공간 목록 사용 (예: ['안방', '주방'])
+  const effectiveDefaults = effectiveDefaultSpaces.value
+  const effectiveDefaultSet = new Set<string>(effectiveDefaults)
 
   function countFor(filterFn: (i: Item) => boolean): number {
     return items.value.filter(i => {
@@ -267,7 +457,7 @@ const allSpaces = computed<SpaceEntry[]>(() => {
     }).length
   }
 
-  const result: SpaceEntry[] = (DEFAULT_SPACES as readonly string[]).map(name => ({
+  const result: SpaceEntry[] = effectiveDefaults.map(name => ({
     name,
     count: countFor(i => i.space === name),
     unclassified: false,
@@ -275,7 +465,7 @@ const allSpaces = computed<SpaceEntry[]>(() => {
 
   const customSeen = new Set<string>()
   for (const item of items.value) {
-    if (item.space && !defaults.has(item.space) && !customSeen.has(item.space)) {
+    if (item.space && !effectiveDefaultSet.has(item.space) && !customSeen.has(item.space)) {
       customSeen.add(item.space)
       result.push({
         name: item.space,
@@ -297,10 +487,9 @@ const allSpaces = computed<SpaceEntry[]>(() => {
 // getTopics()로 정렬/중복 제거된 이름 목록을 받아 카운트만 계산
 
 const { getTopics } = useItems()
+const { customTopics, renameCustomTopic, effectiveDefaultTopics } = useCustomTopics()
 
 const allTopics = computed<SpaceEntry[]>(() => {
-  const defaults = new Set<string>(DEFAULT_TOPICS)
-
   function countFor(filterFn: (i: Item) => boolean): number {
     return items.value.filter(i => {
       if (activeType.value && i.type !== activeType.value) return false
@@ -308,14 +497,27 @@ const allTopics = computed<SpaceEntry[]>(() => {
     }).length
   }
 
-  const result: SpaceEntry[] = (DEFAULT_TOPICS as readonly string[]).map(name => ({
+  // 이름 변경이 반영된 기본 제품 (항상 표시)
+  const effectiveDefaults = effectiveDefaultTopics.value
+  const seen = new Set<string>(effectiveDefaults)
+  const result: SpaceEntry[] = effectiveDefaults.map(name => ({
     name,
     count: countFor(i => i.topic === name),
     unclassified: false,
   }))
 
+  // 사용자 정의 제품 (localStorage) — /add에서 추가한 항목도 바로 표시
+  for (const name of customTopics.value) {
+    if (!seen.has(name)) {
+      seen.add(name)
+      result.push({ name, count: countFor(i => i.topic === name), unclassified: false })
+    }
+  }
+
+  // 항목에 직접 입력된 제품 (IndexedDB) — 위에서 다루지 않은 것만 추가
   for (const name of getTopics()) {
-    if (!defaults.has(name)) {
+    if (!seen.has(name)) {
+      seen.add(name)
       result.push({ name, count: countFor(i => i.topic === name), unclassified: false })
     }
   }
@@ -684,5 +886,171 @@ const filteredItems = computed<Item[]>(() => {
     font-weight: 600;
     color: var(--color-text);
   }
+}
+
+// ── 공간 카드 래퍼 (3-dot 버튼을 절대 위치로 담기 위한 컨테이너) ─────────────
+
+.space-card-wrap {
+  position: relative;
+
+  // 호버 시 3-dot 버튼 표시
+  &:hover .space-card__menu-btn,
+  .space-card__menu-btn:focus-visible {
+    opacity: 1;
+  }
+}
+
+// ── 3-dot 메뉴 버튼 ───────────────────────────────────────────────────────────
+
+.space-card__menu-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--color-sub);
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  // 터치 기기: 항상 표시
+  @media (hover: none) {
+    opacity: 1;
+  }
+}
+
+// ── 이름 변경 모달 ────────────────────────────────────────────────────────────
+
+.rename-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+}
+
+.rename-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 301;
+  width: min(400px, calc(100vw - var(--space-6)));
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.20);
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 var(--space-4);
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+  }
+
+  &__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  &__input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-fast);
+    appearance: none;
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.18);
+    }
+
+    &--error { border-color: #E03131; }
+  }
+
+  &__error {
+    font-size: 0.8125rem;
+    color: #E03131;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+}
+
+.rename-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &--cancel {
+    color: var(--color-sub);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  }
+
+  &--confirm {
+    color: var(--color-btn-text);
+    background: var(--color-primary);
+    border: none;
+    &:hover { opacity: 0.88; }
+  }
+}
+
+// ── 모달 전환 애니메이션 ──────────────────────────────────────────────────────
+
+.rename-fade-enter-active,
+.rename-fade-leave-active { transition: opacity 0.18s ease; }
+.rename-fade-enter-from,
+.rename-fade-leave-to     { opacity: 0; }
+
+.rename-slide-enter-active,
+.rename-slide-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.rename-slide-enter-from,
+.rename-slide-leave-to {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 10px));
 }
 </style>
