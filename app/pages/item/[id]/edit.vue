@@ -7,18 +7,13 @@
     <!-- 항목 없음 -->
     <div v-else-if="!found" class="edit-state">
       <p>항목을 찾을 수 없습니다.</p>
-      <NuxtLink to="/" class="back-link">← 목록으로</NuxtLink>
+      <PageHeader back="/" />
     </div>
 
     <!-- 수정 폼 -->
     <template v-else>
 
-      <div class="edit-page__nav">
-        <NuxtLink :to="'/item/' + itemId" class="back-link" aria-label="상세 화면으로 돌아가기">
-          <span aria-hidden="true">←</span> 돌아가기
-        </NuxtLink>
-        <h1 class="edit-page__title">항목 수정</h1>
-      </div>
+      <PageHeader title="항목 수정" :back="'/item/' + itemId" />
 
       <form novalidate @submit.prevent="submit">
 
@@ -36,6 +31,7 @@
                 :class="{ 'field__input--clearable': form.title }"
                 type="text"
                 placeholder="예: 아이폰 15 Pro"
+                maxlength="20"
                 autocomplete="off"
                 required
                 aria-required="true"
@@ -70,6 +66,7 @@
                 :class="{ 'field__input--clearable': topicCustom }"
                 type="text"
                 placeholder="예: TV, 냉장고, 세탁기"
+                maxlength="20"
                 aria-label="제품 직접 입력"
               />
               <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''; topicChip = ''">✕</button>
@@ -108,6 +105,7 @@
                 :class="{ 'field__input--clearable': form.store }"
                 type="text"
                 placeholder="예: 쿠팡, 삼성 디지털프라자"
+                maxlength="15"
                 autocomplete="off"
                 required
                 aria-required="true"
@@ -330,21 +328,6 @@ async function submit(): Promise<void> {
 <style scoped lang="scss">
 .edit-page {
   padding-bottom: var(--space-7);
-
-  &__nav {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-5);
-    margin-bottom: var(--space-4);
-  }
-
-  &__title {
-    font-size: 1.375rem;
-    font-weight: 800;
-    color: var(--color-text);
-    letter-spacing: -0.02em;
-  }
 }
 
 // ── 로딩 / 오류 ───────────────────────────────────────────────────────────────
@@ -358,27 +341,6 @@ async function submit(): Promise<void> {
   text-align: center;
   color: var(--color-sub);
   font-size: 0.9375rem;
-}
-
-// ── back link ─────────────────────────────────────────────────────────────────
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.875rem;
-  color: var(--color-sub);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
-
-  &:hover { color: var(--color-text); }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    color: var(--color-text);
-  }
 }
 
 // ── form sections ─────────────────────────────────────────────────────────────

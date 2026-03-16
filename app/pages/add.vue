@@ -2,12 +2,7 @@
   <div class="add-page">
 
     <!-- 페이지 상단 내비 -->
-    <div class="add-page__nav">
-      <NuxtLink to="/" class="back-link" aria-label="목록으로 돌아가기">
-        <span aria-hidden="true">←</span> 목록
-      </NuxtLink>
-      <h1 class="add-page__title">새 항목 추가</h1>
-    </div>
+    <PageHeader title="새 항목 추가" back="/" />
 
     <!-- 항목 종류 선택 (필수) -->
     <div ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
@@ -48,6 +43,7 @@
               :class="{ 'field__input--clearable': topicCustom }"
               type="text"
               placeholder="직접 입력"
+              maxlength="20"
               aria-label="제품 직접 입력"
             />
             <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''">✕</button>
@@ -66,6 +62,7 @@
               :class="{ 'field__input--clearable': form.title }"
               type="text"
               placeholder="예: 아이폰 15 Pro"
+              maxlength="20"
               autocomplete="off"
               required
               aria-required="true"
@@ -97,6 +94,7 @@
               :class="{ 'field__input--clearable': spaceCustom }"
               type="text"
               placeholder="기타 (직접 입력)"
+              maxlength="20"
               aria-label="보관 장소 직접 입력"
             />
             <button v-if="spaceCustom" type="button" class="field__clear" aria-label="보관 장소 지우기" @click="spaceCustom = ''">✕</button>
@@ -145,6 +143,7 @@
               :class="{ 'field__input--clearable': form.store }"
               type="text"
               placeholder="예: 쿠팡, 삼성 디지털프라자"
+              maxlength="15"
               autocomplete="off"
             />
             <button v-if="form.store" type="button" class="field__clear" aria-label="구매처 지우기" @click="form.store = ''">✕</button>
@@ -608,42 +607,6 @@ async function submit(): Promise<void> {
 <style scoped lang="scss">
 .add-page {
   padding-bottom: var(--space-7);
-
-  &__nav {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-5);
-    margin-bottom: var(--space-4);
-  }
-
-  &__title {
-    font-size: 1.375rem;
-    font-weight: 800;
-    color: var(--color-text);
-    letter-spacing: -0.02em;
-  }
-}
-
-// ── back link ─────────────────────────────────────────────────────────────────
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.875rem;
-  color: var(--color-sub);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
-
-  &:hover { color: var(--color-text); }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    color: var(--color-text);
-  }
 }
 
 // ── 종류 선택 칩 ──────────────────────────────────────────────────────────────

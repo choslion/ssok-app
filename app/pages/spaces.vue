@@ -183,13 +183,28 @@
               type="text"
               class="rename-modal__input"
               :class="{ 'rename-modal__input--error': renameError }"
-              maxlength="20"
+              :maxlength="RENAME_MAX"
               autocomplete="off"
               aria-required="true"
               :aria-invalid="!!renameError"
-              :aria-describedby="renameError ? 'rename-error' : undefined"
+              :aria-describedby="renameError ? 'rename-error' : (renameDisplayCount >= RENAME_MAX ? 'rename-len-hint' : undefined)"
+              @input="onRenameInput"
               @keydown.enter.prevent="submitRename"
             />
+            <div class="rename-modal__field-footer">
+              <p
+                v-if="renameDisplayCount >= RENAME_MAX"
+                id="rename-len-hint"
+                class="rename-modal__hint"
+                aria-live="polite"
+              >최대 {{ RENAME_MAX }}자까지 입력 가능합니다.</p>
+              <span v-else aria-hidden="true"></span>
+              <span
+                class="rename-modal__counter"
+                :class="{ 'rename-modal__counter--full': renameDisplayCount >= RENAME_MAX }"
+                aria-hidden="true"
+              >{{ renameDisplayCount }}/{{ RENAME_MAX }}</span>
+            </div>
             <p
               v-if="renameError"
               id="rename-error"
@@ -337,11 +352,19 @@ const renameError       = ref('')
 const renameMode        = ref<'space' | 'topic'>('space')
 const renameInputEl     = ref<HTMLInputElement | null>(null)
 const renameModalEl     = ref<HTMLElement | null>(null)
-const renameTriggerEl   = ref<HTMLElement | null>(null)
+const renameTriggerEl    = ref<HTMLElement | null>(null)
+const renameDisplayCount = ref(0)
+
+const RENAME_MAX = 20
+
+function onRenameInput(e: Event): void {
+  renameDisplayCount.value = (e.target as HTMLInputElement).value.length
+}
 
 function openRenameModal(name: string, e: Event, mode: 'space' | 'topic' = 'space'): void {
   renameTargetSpace.value = name
   renameValue.value = name
+  renameDisplayCount.value = name.length
   renameError.value = ''
   renameMode.value = mode
   renameTriggerEl.value = e.currentTarget as HTMLElement
@@ -733,8 +756,19 @@ const filteredItems = computed<Item[]>(() => {
     height: 22px;
     flex-shrink: 0;
   }
-  &__body { display: flex; flex-direction: column; gap: var(--space-1); }
-  &__name { font-size: 1rem; font-weight: 600; color: var(--color-text); }
+  &__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+  &__name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    min-height: 2.8em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
   &__count { font-size: 0.8125rem; color: var(--color-sub); }
 }
 
@@ -894,10 +928,10 @@ const filteredItems = computed<Item[]>(() => {
   position: relative;
 
   // 호버 시 3-dot 버튼 표시
-  &:hover .space-card__menu-btn,
-  .space-card__menu-btn:focus-visible {
-    opacity: 1;
-  }
+  // &:hover .space-card__menu-btn,
+  // .space-card__menu-btn:focus-visible {
+  //   opacity: 1;
+  // }
 }
 
 // ── 3-dot 메뉴 버튼 ───────────────────────────────────────────────────────────
@@ -916,7 +950,7 @@ const filteredItems = computed<Item[]>(() => {
   background: transparent;
   font-family: inherit;
   cursor: pointer;
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 
   &:hover {
@@ -997,10 +1031,35 @@ const filteredItems = computed<Item[]>(() => {
     &--error { border-color: #E03131; }
   }
 
+  &__field-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: 1rem;
+    margin-top: calc(-1 * var(--space-1));
+  }
+
+  &__counter {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    color: var(--color-sub);
+    line-height: 1;
+
+    &--full { color: #E03131; font-weight: 600; }
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: #E03131;
+    margin: 0;
+    flex: 1;
+  }
+
   &__error {
     font-size: 0.8125rem;
     color: #E03131;
-    margin: 0;
+    margin: var(--space-1) 0 0;
   }
 
   &__actions {

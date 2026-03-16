@@ -9,16 +9,15 @@
     <!-- 항목 없음 -->
     <div v-else-if="!item" class="detail-not-found">
       <p>항목을 찾을 수 없습니다.</p>
-      <button type="button" class="back-link" @click="goBack">← 목록으로</button>
+      <PageHeader :back="goBack" />
     </div>
 
     <!-- 본문 -->
     <template v-else>
 
       <!-- 내비 -->
-      <div class="detail-nav">
-        <button type="button" class="back-link" aria-label="목록으로 돌아가기" @click="goBack">← 목록</button>
-        <div class="detail-nav__actions">
+      <PageHeader :back="goBack">
+        <template #actions>
           <NuxtLink :to="'/item/' + itemId + '/edit'" class="action-btn action-btn--edit" aria-label="항목 수정">수정</NuxtLink>
           <template v-if="!deleteConfirm">
             <button type="button" class="action-btn action-btn--delete" aria-label="항목 삭제" @click="deleteConfirm = true">삭제</button>
@@ -29,8 +28,8 @@
               {{ deleting ? '삭제 중…' : '정말 삭제' }}
             </button>
           </template>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- 메타데이터 카드 -->
       <section class="meta-card">
@@ -686,39 +685,6 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   font-size: 0.9375rem;
 }
 
-// ── 내비 ─────────────────────────────────────────────────────────────────────
-
-.detail-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.875rem;
-  color: var(--color-sub);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
-  text-decoration: none;
-  &:hover { color: var(--color-text); }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
 
 .action-btn {
   display: inline-flex;
