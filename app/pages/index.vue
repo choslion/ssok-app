@@ -58,7 +58,7 @@
     <!-- 첫 방문 빈 상태 -->
     <div v-else-if="!loading" class="empty-state">
       <p class="empty-state__tagline">서랍 속 골칫거리 영수증과 설명서,<br>내 폰 안에 쏙!</p>
-      <p class="empty-state__hint">우측 하단 + 버튼을 눌러 첫 항목을 추가해 보세요.</p>
+      <p class="empty-state__hint">하단 + 버튼을 눌러 첫 항목을 추가해 보세요.</p>
     </div>
 
   </div>
@@ -127,14 +127,14 @@ async function playIntro(): Promise<void> {
     introTimeline = tl
 
     // 1단계: 아이콘 스케일 인 (back.out 이징으로 통통 튀는 느낌, 0.25s)
-    if (icon) tl.from(icon, { scale: 0.5, opacity: 0, duration: 0.25, ease: 'back.out(1.5)' })
+    if (icon) tl.from(icon, { scale: 0.5, opacity: 0, duration: 0.55, ease: 'back.out(1.5)' })
     // 2단계: 타이틀 + 서브 슬라이드 업 stagger (이전 트윈과 0.05초 오버랩, 0.26s)
     const textEls = [title, sub].filter(Boolean) as HTMLElement[]
     if (textEls.length) {
-      tl.from(textEls, { opacity: 0, y: 14, duration: 0.2, stagger: 0.06, ease: 'power2.out' }, '-=0.05')
+      tl.from(textEls, { opacity: 0, y: 14, duration: 0.5, stagger: 0.06, ease: 'power2.out' }, '-=0.05')
     }
     // 3단계: 잠깐 머문 뒤 위로 슬라이드 아웃 (total ≈ 1.1s)
-    tl.to(overlay, { y: '-100%', duration: 0.42, ease: 'power2.inOut' }, '+=0.15')
+    tl.to(overlay, { y: 16, opacity: 0, duration: 1.08, ease: 'power2.inOut' }, '+=0.15')
   } catch {
     // GSAP 로드 실패 — 오버레이 즉시 제거 (페일세이프)
     showIntro.value = false
