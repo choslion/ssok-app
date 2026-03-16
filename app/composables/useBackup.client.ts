@@ -139,10 +139,13 @@ async function exportBackup(): Promise<void> {
 
     // 3. ZIP Blob 생성 (70 → 90%)
     exportStep.value = '파일 생성 중…'
-    const zipBlob = await zip.generateAsync(
+    const rawBlob = await zip.generateAsync(
       { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
       ({ percent }) => { exportProgress.value = 70 + Math.round(percent * 0.2) },
     )
+    // JSZip이 생성하는 Blob은 MIME 타입이 비어 있어 모바일 파일 피커가
+    // ZIP으로 인식하지 못하는 문제가 있으므로 명시적으로 지정
+    const zipBlob = new Blob([rawBlob], { type: 'application/zip' })
     exportProgress.value = 90
 
     // 4. 다운로드 (90 → 100%)
