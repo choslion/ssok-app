@@ -28,6 +28,32 @@
       <section class="form-section">
         <h2 class="form-section__heading">기본 정보</h2>
 
+        <!-- 제품군 -->
+        <div class="field">
+          <label class="field__label">
+            제품군 <span class="form-section__optional">(선택)</span>
+          </label>
+          <p class="field__hint">예: TV, 냉장고, 에어프라이어</p>
+          <ChipRow
+            v-model="topicChipComputed"
+            :chips="allTopicChips"
+            group-label="제품군 빠른 선택"
+            expand-label="제품군 목록 더 보기"
+            collapse-label="제품군 목록 접기"
+          />
+          <div class="field__input-wrap topic-custom-input">
+            <input
+              v-model="topicCustom"
+              class="field__input"
+              :class="{ 'field__input--clearable': topicCustom }"
+              type="text"
+              placeholder="직접 입력"
+              aria-label="제품군 직접 입력"
+            />
+            <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품군 지우기" @click="topicCustom = ''">✕</button>
+          </div>
+        </div>
+
         <!-- 제품명 -->
         <div class="field" :class="{ 'field--error': errors.title }">
           <label class="field__label" for="f-name">제품명 <span class="required" aria-hidden="true">*</span></label>
@@ -57,17 +83,13 @@
             보관 장소
             <span v-if="form.type !== 'manual'" class="form-section__optional">(선택)</span>
           </label>
-          <div ref="spaceChipsRef" class="space-chips" role="group" aria-label="보관 장소 선택">
-            <button
-              v-for="s in allSpaceChips"
-              :key="s"
-              type="button"
-              class="chip"
-              :class="{ 'chip--active': spaceChip === s && !spaceCustom.trim() }"
-              :aria-pressed="spaceChip === s && !spaceCustom.trim()"
-              @click="toggleSpaceChip(s)"
-            >{{ s }}</button>
-          </div>
+          <ChipRow
+            v-model="spaceChipComputed"
+            :chips="allSpaceChips"
+            group-label="보관 장소 빠른 선택"
+            expand-label="보관 장소 목록 더 보기"
+            collapse-label="보관 장소 목록 접기"
+          />
           <div class="field__input-wrap space-custom-input">
             <input
               v-model="spaceCustom"
@@ -298,12 +320,12 @@ const { saveAttachment } = useAttachments()
 const { saveExtract } = useReceiptExtracts()
 const { recognize } = useOcr()
 const { allSpaceChips, addCustomSpace } = useCustomSpaces()
+const { allTopicChips, addCustomTopic } = useCustomTopics()
 
 // ── template refs (for focus management) ──────────────────────────────────────
 
 const titleInput = ref<HTMLInputElement | null>(null)
 const dateInput = ref<HTMLInputElement | null>(null)
-const spaceChipsRef = ref<HTMLElement | null>(null)
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -328,6 +350,20 @@ const form = reactive({
 const spaceChip = ref('')
 const spaceCustom = ref('')
 const formSpace = computed(() => spaceCustom.value.trim() || spaceChip.value)
+// ChipRow v-model — 직접 입력이 있으면 칩 선택 해제, 칩 선택 시 직접 입력 초기화
+const spaceChipComputed = computed({
+  get: () => spaceCustom.value.trim() ? '' : spaceChip.value,
+  set: (val: string) => { spaceChip.value = val; spaceCustom.value = '' },
+})
+
+// 제품군: 칩 선택 또는 직접 입력, 직접 입력이 우선
+const topicChip = ref('')
+const topicCustom = ref('')
+const formTopic = computed(() => topicCustom.value.trim() || topicChip.value)
+const topicChipComputed = computed({
+  get: () => topicCustom.value.trim() ? '' : topicChip.value,
+  set: (val: string) => { topicChip.value = val; topicCustom.value = '' },
+})
 
 interface PendingFile {
   id: string           // pre-generated; used as Attachment.id and ReceiptExtract.attachmentId
@@ -381,27 +417,15 @@ function selectType(t: ItemDocType): void {
   for (const pf of pendingFiles.value) {
     pf.docType = t as AttachmentDocType
   }
-  // 종류 변경 시 포커스 이동
+  // 종류 변경 시 상단으로 부드럽게 스크롤 (구매일 필드로 강제 포커스 이동 제거)
   nextTick(() => {
-    if (t === 'manual') {
-      const firstChip = spaceChipsRef.value?.querySelector<HTMLButtonElement>('button')
-      firstChip ? firstChip.focus() : titleInput.value?.focus()
-    } else {
-      dateInput.value ? dateInput.value.focus() : titleInput.value?.focus()
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   })
 }
 
 // ── 구매 금액 포맷 (천 단위 구분자) ─────────────────────────────────────────────
 
 const { priceDisplay, onPriceInput, clearPrice, setPrice } = usePriceInput(toRef(form, 'price'))
-
-// ── 공간 선택 ──────────────────────────────────────────────────────────────────
-
-function toggleSpaceChip(space: string): void {
-  spaceChip.value = spaceChip.value === space ? '' : space
-  spaceCustom.value = ''
-}
 
 // ── file input ────────────────────────────────────────────────────────────────
 
@@ -514,6 +538,7 @@ async function submit(): Promise<void> {
       title: form.title.trim(),
       type: form.type,
       attachmentIds,
+      ...(formTopic.value && { topic: formTopic.value }),
       ...(formSpace.value && { space: formSpace.value }),
       ...(form.purchaseDate && { purchaseDate: form.purchaseDate }),
       ...(form.store.trim() && { store: form.store.trim() }),
@@ -528,8 +553,9 @@ async function submit(): Promise<void> {
 
     await saveItem(item)
 
-    // 직접 입력한 공간이 있으면 다음 방문 시 칩으로 표시되도록 저장
+    // 직접 입력한 공간/제품군이 있으면 다음 방문 시 칩으로 표시되도록 저장
     if (spaceCustom.value.trim()) addCustomSpace(spaceCustom.value.trim())
+    if (topicCustom.value.trim()) addCustomTopic(topicCustom.value.trim())
 
     for (const pf of pendingFiles.value) {
       const attachment: Attachment = {
@@ -766,6 +792,13 @@ async function submit(): Promise<void> {
     }
   }
 
+  &__hint {
+    margin-top: calc(-1 * var(--space-1));
+    margin-bottom: var(--space-2);
+    font-size: 0.8125rem;
+    color: var(--color-sub);
+  }
+
   &__error {
     margin-top: var(--space-1);
     font-size: 0.8125rem;
@@ -790,41 +823,12 @@ async function submit(): Promise<void> {
   margin-left: 2px;
 }
 
-// ── 공간 칩 ───────────────────────────────────────────────────────────────────
-
-.space-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.chip {
-  flex-shrink: 0;
-  padding: var(--space-1) var(--space-3);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  color: var(--color-sub);
-  background: var(--color-surface);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-
-  &--active {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: rgba(255, 107, 0, 0.06);
-    font-weight: 600;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
 
 .space-custom-input {
+  margin-top: var(--space-2);
+}
+
+.topic-custom-input {
   margin-top: var(--space-2);
 }
 
@@ -913,14 +917,18 @@ async function submit(): Promise<void> {
   }
 
   &__kind {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) calc(var(--space-2) + 20px) var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;
     font-family: inherit;
     color: var(--color-text);
-    background: var(--color-surface);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23868E96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      no-repeat right var(--space-2) center,
+      var(--color-surface);
     cursor: pointer;
+    appearance: none;
 
     &:focus-visible {
       outline: none;

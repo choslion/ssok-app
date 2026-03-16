@@ -47,6 +47,35 @@
             <p v-if="errors.title" id="f-name-error" class="field__error" role="alert">{{ errors.title }}</p>
           </div>
 
+          <!-- 제품군 -->
+          <div class="field">
+            <label class="field__label">
+              제품군 <span class="form-section__optional">(선택)</span>
+            </label>
+            <div class="topic-chips" role="group" aria-label="제품군 선택">
+              <button
+                v-for="t in allTopicChips"
+                :key="t"
+                type="button"
+                class="chip"
+                :class="{ 'chip--active': topicChip === t && !topicCustom.trim() }"
+                :aria-pressed="topicChip === t && !topicCustom.trim()"
+                @click="toggleTopicChip(t)"
+              >{{ t }}</button>
+            </div>
+            <div class="field__input-wrap topic-custom-input">
+              <input
+                v-model="topicCustom"
+                class="field__input"
+                :class="{ 'field__input--clearable': topicCustom }"
+                type="text"
+                placeholder="예: TV, 냉장고, 세탁기"
+                aria-label="제품군 직접 입력"
+              />
+              <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품군 지우기" @click="topicCustom = ''; topicChip = ''">✕</button>
+            </div>
+          </div>
+
           <div class="field" :class="{ 'field--error': errors.purchaseDate }">
             <label class="field__label" for="f-date">구매일 <span class="required" aria-hidden="true">*</span></label>
             <div class="field__input-wrap">
@@ -163,6 +192,7 @@ const itemId = route.params.id as string
 // ── composables ───────────────────────────────────────────────────────────────
 
 const { getItem, updateItem } = useItems()
+const { allTopicChips, addCustomTopic } = useCustomTopics()
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
@@ -177,6 +207,11 @@ const form = reactive({
   warrantyMonths: 12 as number | '',
   price: undefined as number | undefined,
 })
+
+// 제품군: 직접 입력 또는 칩 선택
+const topicCustom = ref('')
+const topicChip = ref('')
+const formTopic = computed(() => topicCustom.value.trim() || topicChip.value)
 
 const errors = reactive<Record<string, string>>({})
 
@@ -198,6 +233,7 @@ onMounted(async () => {
       form.warrantyMonths = 12
     }
     setPrice(item.price)
+    topicCustom.value = item.topic ?? ''
     found.value = true
   }
   loading.value = false
@@ -227,6 +263,13 @@ function warrantyEndDate(purchaseDate: string, months: number): string {
   const d = new Date(purchaseDate)
   d.setMonth(d.getMonth() + months)
   return d.toISOString().split('T')[0] ?? ''
+}
+
+// ── 제품군 선택 ────────────────────────────────────────────────────────────────
+
+function toggleTopicChip(topic: string): void {
+  topicChip.value = topicChip.value === topic ? '' : topic
+  topicCustom.value = ''
 }
 
 // ── validation ─────────────────────────────────────────────────────────────────
@@ -265,12 +308,14 @@ async function submit(): Promise<void> {
   submitting.value = true
   try {
     const months = form.warrantyMonths as number
+    if (formTopic.value.trim()) addCustomTopic(formTopic.value.trim())
     await updateItem(itemId, {
       title: form.title.trim(),
       purchaseDate: form.purchaseDate,
       store: form.store.trim(),
       warrantyUntil: warrantyEndDate(form.purchaseDate, months),
       price: form.price != null && form.price > 0 ? form.price : undefined,
+      topic: formTopic.value || undefined,
     })
     await router.push('/item/' + itemId)
   } catch (err) {
@@ -480,6 +525,44 @@ async function submit(): Promise<void> {
 .required {
   color: var(--color-primary);
   margin-left: 2px;
+}
+
+// ── 제품군 칩 ──────────────────────────────────────────────────────────────────
+
+.topic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--color-sub);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+
+  &--active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(255, 107, 0, 0.06);
+    font-weight: 600;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.topic-custom-input {
+  margin-top: var(--space-2);
 }
 
 // ── submit error ──────────────────────────────────────────────────────────────

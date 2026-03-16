@@ -1,11 +1,39 @@
 <template>
   <div class="spaces-page">
 
-    <!-- 페이지 헤더 -->
+    <!-- 페이지 헤더 + 모드 토글 (우상단 inline) -->
     <div class="spaces-page__header">
-      <h1 class="spaces-page__title">보관 장소</h1>
-      <p class="spaces-page__subtitle">공간별로 물건을 찾아보세요.</p>
+      <div class="spaces-page__header-meta">
+        <h1 class="spaces-page__title">둘러보기</h1>
+        <p class="spaces-page__subtitle">
+          {{ browseMode === 'space' ? '공간별로 물건을 찾아보세요.' : '제품군별로 물건을 찾아보세요.' }}
+        </p>
+      </div>
+      <div class="mode-toggle" role="group" aria-label="보기 모드 선택">
+        <button
+          type="button"
+          class="mode-btn"
+          :class="{ 'mode-btn--active': browseMode === 'space' }"
+          :aria-pressed="browseMode === 'space'"
+          @click="switchMode('space')"
+        >공간</button>
+        <button
+          type="button"
+          class="mode-btn"
+          :class="{ 'mode-btn--active': browseMode === 'topic' }"
+          :aria-pressed="browseMode === 'topic'"
+          @click="switchMode('topic')"
+        >제품군</button>
+      </div>
     </div>
+
+    <!-- 종류 필터 -->
+    <ChipRow
+      v-model="typeChipModel"
+      :chips="TYPE_CHIPS"
+      class="type-filter-chips"
+      group-label="종류 필터"
+    />
 
     <!-- 로딩 -->
     <p v-if="loading" class="spaces-status" aria-live="polite">불러오는 중…</p>
@@ -13,46 +41,81 @@
     <template v-else>
 
       <!-- ── 공간 카드 그리드 ─────────────────────────────────────────── -->
-      <ul v-if="allSpaces.length" class="space-list" aria-label="보관 장소 목록">
-        <li v-for="sp in allSpaces" :key="sp.name">
-          <button
-            type="button"
-            class="space-card"
-            :class="{
-              'space-card--unclassified': sp.unclassified,
-              'space-card--selected': selectedSpace === sp.name,
-            }"
-            :aria-pressed="selectedSpace === sp.name"
-            :aria-label="`${sp.name}, ${sp.count}개 항목`"
-            @click="toggleSpace(sp.name)"
-          >
-            <div class="space-card__icon" aria-hidden="true">
-              <svg v-if="!sp.unclassified" width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <path d="M3 7l9-4 9 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 2"/>
-                <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="space-card__body">
-              <span class="space-card__name">{{ sp.name }}</span>
-              <span class="space-card__count">{{ sp.count }}개</span>
-            </div>
-          </button>
-        </li>
-      </ul>
+      <template v-if="browseMode === 'space'">
+        <ul v-if="allSpaces.length" ref="spaceListRef" class="space-list" aria-label="보관 장소 목록">
+          <li v-for="sp in allSpaces" :key="sp.name">
+            <button
+              type="button"
+              class="space-card"
+              :class="{
+                'space-card--unclassified': sp.unclassified,
+                'space-card--selected': selectedSpace === sp.name,
+              }"
+              :aria-pressed="selectedSpace === sp.name"
+              :aria-label="`${sp.name}, ${sp.count}개 항목`"
+              @click="toggleSpace(sp.name)"
+            >
+              <div class="space-card__icon" aria-hidden="true">
+                <svg v-if="!sp.unclassified" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                  <path d="M3 7l9-4 9 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 2"/>
+                  <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="space-card__body">
+                <span class="space-card__name">{{ sp.name }}</span>
+                <span class="space-card__count">{{ sp.count }}개</span>
+              </div>
+            </button>
+          </li>
+        </ul>
+        <p v-else class="spaces-status">이 공간에 등록된 물건이 없어요.</p>
+      </template>
 
-      <!-- 공간이 아예 없을 때 -->
-      <p v-else class="spaces-status">이 공간에 등록된 물건이 없어요.</p>
+      <!-- ── 제품군 카드 그리드 ───────────────────────────────────────── -->
+      <template v-else>
+        <ul v-if="allTopics.length" ref="topicListRef" class="space-list" aria-label="제품군 목록">
+          <li v-for="tp in allTopics" :key="tp.name">
+            <button
+              type="button"
+              class="space-card"
+              :class="{
+                'space-card--unclassified': tp.unclassified,
+                'space-card--selected': selectedTopic === tp.name,
+              }"
+              :aria-pressed="selectedTopic === tp.name"
+              :aria-label="`${tp.name}, ${tp.count}개 항목`"
+              @click="toggleTopic(tp.name)"
+            >
+              <div class="space-card__icon" aria-hidden="true">
+                <svg v-if="!tp.unclassified" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 7h11l4 5-4 5H3V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                  <circle cx="7.5" cy="12" r="1" fill="currentColor"/>
+                </svg>
+                <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 2"/>
+                  <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="space-card__body">
+                <span class="space-card__name">{{ tp.name }}</span>
+                <span class="space-card__count">{{ tp.count }}개</span>
+              </div>
+            </button>
+          </li>
+        </ul>
+        <p v-else class="spaces-status">등록된 제품군이 없어요. 항목 추가 시 제품군을 입력해 보세요.</p>
+      </template>
 
     </template>
 
     <!-- ── 바텀 시트 ──────────────────────────────────────────────────── -->
     <SpaceSheet
       :open="sheetOpen"
-      :space-name="selectedSpace ?? ''"
+      :space-name="selectedName"
       :items="filteredItems"
       @close="closeSheet"
     />
@@ -60,12 +123,20 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '공간 · SSOK' })
-import type { Item } from '~~/shared/types/ssok'
+useHead({ title: '둘러보기 · SSOK' })
+import type { Item, ItemDocType } from '~~/shared/types/ssok'
+import { TYPE_LABELS } from '~~/shared/utils/format'
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SPACES = ['거실', '주방', '안방', '욕실', '현관', '창고', '서재'] as const
+const DEFAULT_SPACES = ['거실', '주방'] as const
+const ALL_TYPES: ItemDocType[] = ['receipt', 'warranty', 'manual']
+
+// ChipRow 용 타입 필터 매핑
+const TYPE_REVERSE = Object.fromEntries(
+  Object.entries(TYPE_LABELS).map(([k, v]) => [v, k]),
+) as Record<string, ItemDocType>
+const TYPE_CHIPS = ['전체', ...ALL_TYPES.map(t => TYPE_LABELS[t])]
 
 // ── 데이터 로딩 (메타데이터만 — 블롭 미로딩) ─────────────────────────────────
 
@@ -74,38 +145,105 @@ const loading = ref(true)
 const route = useRoute()
 const router = useRouter()
 
+const spaceListRef = ref<HTMLElement | null>(null)
+const topicListRef = ref<HTMLElement | null>(null)
+const { runEntrance: runSpaceEntrance } = useCardEntrance(spaceListRef, ':scope > li')
+const { runEntrance: runTopicEntrance } = useCardEntrance(topicListRef, ':scope > li')
+
 onMounted(async () => {
   await loadItems()
   loading.value = false
 
-  // 아이템 상세에서 돌아온 경우 — 이전 공간 드로어 복원
-  const spaceQuery = route.query.space as string | undefined
-  if (spaceQuery) {
-    toggleSpace(spaceQuery)
-    // toggleSpace 내부에서 router.replace로 URL을 동기화하므로 별도 처리 불필요
+  // 폴더 카드 stagger 진입 애니메이션
+  if (browseMode.value === 'space') await runSpaceEntrance()
+  else await runTopicEntrance()
+
+  // 아이템 상세에서 돌아온 경우 — 이전 필터/드로어 복원
+  const typeQuery = route.query.type as string | undefined
+  if (typeQuery && (['receipt', 'warranty', 'manual'] as string[]).includes(typeQuery)) {
+    activeType.value = typeQuery as ItemDocType
   }
+
+  const topicQuery = route.query.topic as string | undefined
+  const spaceQuery = route.query.space as string | undefined
+  if (topicQuery) {
+    browseMode.value = 'topic'
+    toggleTopic(topicQuery)
+  } else if (spaceQuery) {
+    toggleSpace(spaceQuery)
+  }
+})
+
+// ── 보기 모드 ─────────────────────────────────────────────────────────────────
+
+const browseMode = useState<'space' | 'topic'>('spaces-browseMode', () => 'space')
+
+function switchMode(mode: 'space' | 'topic'): void {
+  if (browseMode.value === mode) return
+  sheetOpen.value = false
+  selectedSpace.value = null
+  selectedTopic.value = null
+  browseMode.value = mode
+  const query: Record<string, string> = {}
+  if (activeType.value) query.type = activeType.value
+  router.replace({ path: '/spaces', query })
+}
+
+// ── 종류 필터 ──────────────────────────────────────────────────────────────────
+
+const activeType = useState<ItemDocType | null>('spaces-activeType', () => null)
+
+function setActiveType(type: ItemDocType | null): void {
+  activeType.value = type
+  const query: Record<string, string> = {}
+  if (type) query.type = type
+
+  if (browseMode.value === 'space' && selectedSpace.value) query.space = selectedSpace.value
+  if (browseMode.value === 'topic' && selectedTopic.value) query.topic = selectedTopic.value
+  router.replace({ path: '/spaces', query })
+}
+
+const typeChipModel = computed({
+  get: () => activeType.value ? TYPE_LABELS[activeType.value] : '전체',
+  set: (label: string) => setActiveType(TYPE_REVERSE[label] ?? null),
 })
 
 // ── 공간 선택 / 시트 상태 ─────────────────────────────────────────────────────
 
-const selectedSpace = ref<string | null>(null)
-const sheetOpen = ref(false)
+const selectedSpace = useState<string | null>('spaces-selectedSpace', () => null)
+const selectedTopic = useState<string | null>('spaces-selectedTopic', () => null)
+const sheetOpen = useState<boolean>('spaces-sheetOpen', () => false)
+
+const selectedName = computed(() =>
+  browseMode.value === 'space' ? (selectedSpace.value ?? '') : (selectedTopic.value ?? '')
+)
 
 function toggleSpace(name: string): void {
   selectedSpace.value = name
   sheetOpen.value = true
-  // 히스토리 스택 쌓지 않고 URL 쿼리만 교체
-  router.replace({ path: '/spaces', query: { space: name } })
+  const query: Record<string, string> = { space: name }
+  if (activeType.value) query.type = activeType.value
+  router.replace({ path: '/spaces', query })
+}
+
+function toggleTopic(name: string): void {
+  selectedTopic.value = name
+  sheetOpen.value = true
+  const query: Record<string, string> = { topic: name }
+  if (activeType.value) query.type = activeType.value
+  router.replace({ path: '/spaces', query })
 }
 
 function closeSheet(): void {
   sheetOpen.value = false
   selectedSpace.value = null
-  router.replace({ path: '/spaces' })
+  selectedTopic.value = null
+  const query: Record<string, string> = {}
+  if (activeType.value) query.type = activeType.value
+  router.replace({ path: '/spaces', query })
 }
 
 // ── 공간 목록 + 카운트 ────────────────────────────────────────────────────────
-// space 인덱스(T4.1)로 향후 getAllFromIndex 가능. 현재는 메모리 필터로 카운트.
 
 interface SpaceEntry {
   name: string
@@ -116,27 +254,59 @@ interface SpaceEntry {
 const allSpaces = computed<SpaceEntry[]>(() => {
   const defaults = new Set<string>(DEFAULT_SPACES)
 
+  function countFor(filterFn: (i: Item) => boolean): number {
+    return items.value.filter(i => {
+      if (activeType.value && i.type !== activeType.value) return false
+      return filterFn(i)
+    }).length
+  }
+
   const result: SpaceEntry[] = (DEFAULT_SPACES as readonly string[]).map(name => ({
     name,
-    count: items.value.filter(i => i.space === name).length,
+    count: countFor(i => i.space === name),
     unclassified: false,
   }))
 
-  // 사용자 정의 공간
   const customSeen = new Set<string>()
   for (const item of items.value) {
     if (item.space && !defaults.has(item.space) && !customSeen.has(item.space)) {
       customSeen.add(item.space)
       result.push({
         name: item.space,
-        count: items.value.filter(i => i.space === item.space).length,
+        count: countFor(i => i.space === item.space),
         unclassified: false,
       })
     }
   }
 
-  // 미분류: 공간 미지정 항목이 있을 때만 표시
-  const unclassifiedCount = items.value.filter(i => !i.space).length
+  const unclassifiedCount = countFor(i => !i.space)
+  if (unclassifiedCount > 0) {
+    result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
+  }
+
+  return result
+})
+
+// ── 제품군 목록 + 카운트 ──────────────────────────────────────────────────────
+// getTopics()로 정렬/중복 제거된 이름 목록을 받아 카운트만 계산
+
+const { getTopics } = useItems()
+
+const allTopics = computed<SpaceEntry[]>(() => {
+  function countFor(filterFn: (i: Item) => boolean): number {
+    return items.value.filter(i => {
+      if (activeType.value && i.type !== activeType.value) return false
+      return filterFn(i)
+    }).length
+  }
+
+  const result: SpaceEntry[] = getTopics().map(name => ({
+    name,
+    count: countFor(i => i.topic === name),
+    unclassified: false,
+  }))
+
+  const unclassifiedCount = countFor(i => !i.topic)
   if (unclassifiedCount > 0) {
     result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
   }
@@ -145,12 +315,23 @@ const allSpaces = computed<SpaceEntry[]>(() => {
 })
 
 // ── 필터된 항목 ───────────────────────────────────────────────────────────────
-// 블롭 로딩 없음 — useItems의 items는 메타데이터만 포함.
 
 const filteredItems = computed<Item[]>(() => {
-  if (selectedSpace.value === null) return []
-  if (selectedSpace.value === '미분류') return items.value.filter(i => !i.space)
-  return items.value.filter(i => i.space === selectedSpace.value)
+  if (browseMode.value === 'space') {
+    if (selectedSpace.value === null) return []
+    let result = selectedSpace.value === '미분류'
+      ? items.value.filter(i => !i.space)
+      : items.value.filter(i => i.space === selectedSpace.value)
+    if (activeType.value) result = result.filter(i => i.type === activeType.value)
+    return result
+  } else {
+    if (selectedTopic.value === null) return []
+    let result = selectedTopic.value === '미분류'
+      ? items.value.filter(i => !i.topic)
+      : items.value.filter(i => i.topic === selectedTopic.value)
+    if (activeType.value) result = result.filter(i => i.type === activeType.value)
+    return result
+  }
 })
 
 </script>
@@ -161,7 +342,16 @@ const filteredItems = computed<Item[]>(() => {
   padding-bottom: calc(var(--space-7) + env(safe-area-inset-bottom, 0px));
 
   &__header {
-    margin-bottom: var(--space-6);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  &__header-meta {
+    flex: 1;
+    min-width: 0;
   }
 
   &__title {
@@ -178,12 +368,53 @@ const filteredItems = computed<Item[]>(() => {
   }
 }
 
+// ── 모드 토글 ──────────────────────────────────────────────────────────────────
+
+.mode-toggle {
+  display: flex;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.mode-btn {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--color-sub);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast);
+
+  &--active {
+    color: var(--color-primary);
+    background: rgba(255, 107, 0, 0.08);
+    font-weight: 600;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
 .spaces-status {
   font-size: 0.9375rem;
   color: var(--color-sub);
   text-align: center;
   padding: var(--space-8) var(--space-4);
   margin: 0;
+}
+
+// ── 종류 필터 칩 ──────────────────────────────────────────────────────────────
+
+.type-filter-chips {
+  margin-bottom: var(--space-4);
 }
 
 // ── 공간 카드 그리드 ──────────────────────────────────────────────────────────

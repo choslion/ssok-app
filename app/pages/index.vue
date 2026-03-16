@@ -27,20 +27,13 @@
     </div>
 
     <!-- 종류 필터 칩 -->
-    <div v-if="types.length > 1" class="chips" role="group" aria-label="종류 필터">
-      <button
-        class="chip"
-        :class="{ 'chip--active': !activeType }"
-        @click="activeType = null"
-      >전체</button>
-      <button
-        v-for="t in types"
-        :key="t"
-        class="chip"
-        :class="{ 'chip--active': activeType === t }"
-        @click="activeType = t"
-      >{{ TYPE_LABELS[t] }}</button>
-    </div>
+    <ChipRow
+      v-if="types.length > 1"
+      v-model="typeChipModel"
+      :chips="typeChips"
+      class="type-filter-chips"
+      group-label="종류 필터"
+    />
 
     <!-- 카드 목록 -->
     <ul v-if="filtered.length" ref="cardListRef" class="card-list" aria-label="항목 목록">
@@ -95,6 +88,7 @@ import { TYPE_LABELS, formatDate, formatAmount, warrantyStatus } from '~~/shared
 const { items, loadItems } = useItems()
 const loading = ref(true)
 const cardListRef = ref<HTMLElement | null>(null)
+const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, ':scope > .card-list__item')
 
 // ── 첫 방문 인트로 ────────────────────────────────────────────────────────────
 // window 플래그 — 새로고침(새 window 컨텍스트)시 초기화, SPA 탭 탐색 시 유지
@@ -157,20 +151,7 @@ onMounted(async () => {
   loading.value = false
 
   // 카드 stagger 진입 애니메이션 — 인트로 재생 시에는 생략 (인트로가 입장 연출 담당)
-  if (import.meta.client && filtered.value.length && !ranIntro) {
-    const { gsap } = await import('gsap')
-    await nextTick()
-    const cards = cardListRef.value?.querySelectorAll(':scope > .card-list__item')
-    if (cards?.length) {
-      gsap.from(cards, {
-        opacity: 0,
-        y: 14,
-        duration: 0.25,
-        stagger: 0.04,
-        ease: 'power2.out',
-      })
-    }
-  }
+  if (filtered.value.length && !ranIntro) await runCardEntrance()
 })
 
 onUnmounted(() => {
@@ -184,6 +165,16 @@ onUnmounted(() => {
 const search = ref('')
 const sortOrder = ref<'newest' | 'oldest' | 'name'>('newest')
 const activeType = ref<ItemDocType | null>(null)
+
+// ChipRow 용 타입 필터 매핑
+const TYPE_REVERSE = Object.fromEntries(
+  Object.entries(TYPE_LABELS).map(([k, v]) => [v, k]),
+) as Record<string, ItemDocType>
+const typeChips = computed(() => ['전체', ...types.value.map(t => TYPE_LABELS[t])])
+const typeChipModel = computed({
+  get: () => activeType.value ? TYPE_LABELS[activeType.value] : '전체',
+  set: (label: string) => { activeType.value = TYPE_REVERSE[label] ?? null },
+})
 
 const types = computed<ItemDocType[]>(() => {
   const set = new Set<ItemDocType>()
@@ -277,50 +268,26 @@ function resetFilter(): void {
 
   &__sort {
     flex-shrink: 0;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2) calc(var(--space-3) + 20px) var(--space-2) var(--space-3);
     border: 1.5px solid var(--color-border);
     border-radius: var(--radius-full);
     font-size: 0.8125rem;
     font-family: inherit;
     color: var(--color-text);
-    background: var(--color-surface);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23868E96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      no-repeat right var(--space-3) center,
+      var(--color-surface);
     cursor: pointer;
     appearance: none;
     &:focus { outline: none; border-color: var(--color-primary); }
   }
 }
 
-// ── 카테고리 칩 ───────────────────────────────────────────────────────────────
+// ── 종류 필터 칩 ──────────────────────────────────────────────────────────────
 
-.chips {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: nowrap;
-  overflow-x: auto;
+.type-filter-chips {
   margin-bottom: var(--space-3);
-  padding-bottom: var(--space-1);
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
-}
-
-.chip {
-  flex-shrink: 0;
-  padding: var(--space-1) var(--space-3);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  color: var(--color-sub);
-  background: var(--color-surface);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-
-  &--active {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: rgba(255, 107, 0, 0.06);
-    font-weight: 600;
-  }
 }
 
 // ── 카드 목록 ─────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ export interface Item {
   title: string              // Display name (required)
   type: ItemDocType          // Document purpose / category (required)
   attachmentIds: string[]    // Ordered Attachment IDs (required; may be empty)
+  topic?: string             // Product group (e.g. TV, 냉장고)
   space?: string             // Location (e.g. 거실, 주방)
   price?: number             // Purchase price
   store?: string             // Store / merchant name

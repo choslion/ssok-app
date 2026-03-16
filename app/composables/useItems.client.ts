@@ -43,5 +43,18 @@ export const useItems = () => {
     items.value = items.value.filter(i => i.id !== id)
   }
 
-  return { items, loadItems, getItem, saveItem, updateItem, deleteItem }
+  // 모든 항목에서 제품군 목록을 중복 없이 반환 (trim + case-fold 정규화, localeCompare 정렬)
+  const getTopics = (): string[] => {
+    const seen = new Map<string, string>() // lowercase key → trimmed display value
+    for (const item of items.value) {
+      if (!item.topic) continue
+      const trimmed = item.topic.trim()
+      if (!trimmed) continue
+      const lower = trimmed.toLowerCase()
+      if (!seen.has(lower)) seen.set(lower, trimmed)
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b))
+  }
+
+  return { items, loadItems, getItem, saveItem, updateItem, deleteItem, getTopics }
 }

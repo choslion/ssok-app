@@ -49,26 +49,14 @@ import { formatDate, formatAmount } from '~~/shared/utils/format'
 const { items, loadItems } = useItems()
 const loading = ref(true)
 const cardListRef = ref<HTMLElement | null>(null)
+const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, ':scope > .card-list__item')
 
 onMounted(async () => {
   await loadItems()
   loading.value = false
 
-  // 카드 stagger 진입 애니메이션 — 초기 로드 1회만 실행
-  if (import.meta.client && expiring.value.length) {
-    const { gsap } = await import('gsap')
-    await nextTick()
-    const cards = cardListRef.value?.querySelectorAll(':scope > .card-list__item')
-    if (cards?.length) {
-      gsap.from(cards, {
-        opacity: 0,
-        y: 14,
-        duration: 0.25,
-        stagger: 0.04,
-        ease: 'power2.out',
-      })
-    }
-  }
+  // 카드 stagger 진입 애니메이션
+  if (expiring.value.length) await runCardEntrance()
 })
 
 // ── 필터 + 정렬 ──────────────────────────────────────────────────────────────
@@ -146,7 +134,7 @@ const expiring = computed<Item[]>(() =>
   &__hint {
     font-size: 0.875rem;
     color: var(--color-sub);
-    max-width: 280px;
+    max-width: 245px;
     line-height: 1.6;
   }
 

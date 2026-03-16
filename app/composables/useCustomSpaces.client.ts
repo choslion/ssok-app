@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = 'ssok-custom-spaces'
 
-const DEFAULT_SPACES = ['거실', '주방', '안방', '욕실', '현관', '창고', '서재'] as const
+const DEFAULT_SPACES = ['거실', '주방'] as const
 const DEFAULT_SET = new Set<string>(DEFAULT_SPACES)
 
 export const useCustomSpaces = () => {

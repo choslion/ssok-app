@@ -51,6 +51,7 @@
         <div class="sheet__body">
           <ul
             v-if="items.length"
+            ref="listEl"
             class="sheet__list"
             :aria-label="`${spaceName} 항목 목록`"
           >
@@ -91,16 +92,22 @@ const HEADING_ID = 'sheet-heading'
 
 const sheetEl    = ref<HTMLElement | null>(null)
 const closeBtnEl = ref<HTMLButtonElement | null>(null)
+const listEl     = ref<HTMLElement | null>(null)
+
+const { runEntrance: runListEntrance } = useCardEntrance(listEl, ':scope > li')
+
+// 시트가 열릴 때마다 항목 목록에 stagger 진입 애니메이션 적용
+watch(() => props.open, (isOpen) => { if (isOpen) runListEntrance() })
 
 // 닫힌 후 포커스를 돌려줄 트리거 요소
 const returnFocusEl = ref<HTMLElement | null>(null)
 
-// 확장 상태
-const expanded = ref(false)
+// 확장 상태 — useState로 네비게이션 이탈/복귀 시에도 유지
+const expanded = useState<boolean>('sheet-expanded', () => false)
 
 // 자동 확장 여부 — true이면 52vh detent에서 콘텐츠가 항상 잘림
 // → 핸들을 내릴 때 52vh 중간 detent 건너뛰고 바로 닫기
-const autoExpanded = ref(false)
+const autoExpanded = useState<boolean>('sheet-autoExpanded', () => false)
 
 // 핸들 위글 (자동 확장 시 시각 피드백)
 const handleWiggling = ref(false)
@@ -239,12 +246,13 @@ function onDocKeydown(e: KeyboardEvent): void {
   onFocusTrap(e)
 }
 
+// open이 false→true로 바뀔 때 (정상 열기)
 watch(() => props.open, async (val) => {
   if (val) {
     returnFocusEl.value = document.activeElement as HTMLElement
     lockBackground()
     await nextTick()
-    checkAutoExpand()
+    if (!expanded.value) checkAutoExpand()
     closeBtnEl.value?.focus()
     document.addEventListener('keydown', onDocKeydown)
   } else {
@@ -252,6 +260,17 @@ watch(() => props.open, async (val) => {
     unlockBackground()
     returnFocusEl.value?.focus()
     returnFocusEl.value = null
+  }
+})
+
+// 네비게이션 복귀 시 open이 처음부터 true인 경우 watch가 발화하지 않으므로 별도 처리
+onMounted(async () => {
+  if (props.open) {
+    lockBackground()
+    await nextTick()
+    if (!expanded.value) checkAutoExpand()
+    closeBtnEl.value?.focus()
+    document.addEventListener('keydown', onDocKeydown)
   }
 })
 
@@ -418,8 +437,8 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  // 하단 safe area (iOS 홈 인디케이터) 확보
-  padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  // 탭 바(60px) + iOS 홈 인디케이터 safe area 확보 → 마지막 항목이 탭 바에 가려지지 않도록
+  padding: var(--space-4) var(--space-4) calc(60px + var(--space-4) + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
 }
 
