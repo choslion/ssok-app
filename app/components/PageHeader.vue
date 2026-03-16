@@ -52,9 +52,6 @@ function handleBack(): void {
 
 <style scoped lang="scss">
 .page-header {
-  position: sticky;
-  top: var(--header-height);
-  z-index: 10;
   display: flex;
   align-items: center;
   gap: var(--space-2);
