@@ -503,8 +503,10 @@ const allSpaces = computed<SpaceEntry[]>(() => {
     result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
   }
 
-  // 아이템이 없는 공간 카드는 숨김
-  return result.filter(entry => entry.count > 0)
+  // 기본 공간은 아이템이 없어도 항상 표시, 커스텀/미분류는 아이템이 있을 때만 표시
+  return result.filter(entry =>
+    entry.unclassified ? entry.count > 0 : (effectiveDefaultSet.has(entry.name) || entry.count > 0)
+  )
 })
 
 // ── 제품 목록 + 카운트 ──────────────────────────────────────────────────────
@@ -523,6 +525,7 @@ const allTopics = computed<SpaceEntry[]>(() => {
 
   // 이름 변경이 반영된 기본 제품 (항상 표시)
   const effectiveDefaults = effectiveDefaultTopics.value
+  const effectiveDefaultSet = new Set<string>(effectiveDefaults)
   const seen = new Set<string>(effectiveDefaults)
   const result: SpaceEntry[] = effectiveDefaults.map(name => ({
     name,
@@ -551,8 +554,10 @@ const allTopics = computed<SpaceEntry[]>(() => {
     result.push({ name: '미분류', count: unclassifiedCount, unclassified: true })
   }
 
-  // 아이템이 없는 제품 카드는 숨김
-  return result.filter(entry => entry.count > 0)
+  // 기본 제품은 아이템이 없어도 항상 표시, 커스텀/미분류는 아이템이 있을 때만 표시
+  return result.filter(entry =>
+    entry.unclassified ? entry.count > 0 : (effectiveDefaultSet.has(entry.name) || entry.count > 0)
+  )
 })
 
 // ── 필터된 항목 ───────────────────────────────────────────────────────────────
