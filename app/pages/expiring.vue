@@ -51,7 +51,7 @@
 <script setup lang="ts">
 useHead({ title: '보증 알림 · SSOK' })
 import type { Item } from '~~/shared/types/ssok'
-import { formatDate, formatAmount } from '~~/shared/utils/format'
+import { formatDate } from '~~/shared/utils/format'
 
 const { items, loadItems } = useItems()
 const loading = ref(true)

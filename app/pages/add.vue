@@ -56,7 +56,6 @@
           <div class="field__input-wrap">
             <input
               id="f-name"
-              ref="titleInput"
               v-model="form.title"
               class="field__input"
               :class="{ 'field__input--clearable': form.title }"
@@ -115,7 +114,6 @@
           <div class="field__input-wrap">
             <input
               id="f-date"
-              ref="dateInput"
               v-model="form.purchaseDate"
               class="field__input"
               :class="{ 'field__input--clearable': form.purchaseDate }"
@@ -309,7 +307,8 @@
 <script setup lang="ts">
 useHead({ title: '추가 · SSOK' })
 import type { Item, Attachment, ItemDocType, AttachmentDocType } from '~~/shared/types/ssok'
-import type { OcrResult, OcrProgress } from '~/composables/useOcr.client'
+import { todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
+import type { PendingFile } from '~/composables/usePendingFiles.client'
 
 // ── composables ───────────────────────────────────────────────────────────────
 
@@ -317,7 +316,6 @@ const router = useRouter()
 const { items, saveItem, loadItems, getTopics } = useItems()
 const { saveAttachment } = useAttachments()
 const { saveExtract } = useReceiptExtracts()
-const { recognize } = useOcr()
 const { addCustomSpace, effectiveDefaultSpaces } = useCustomSpaces()
 const { addCustomTopic, effectiveDefaultTopics } = useCustomTopics()
 
@@ -338,17 +336,10 @@ const allSpaceChips = computed<string[]>(() => {
 })
 
 // 실제 아이템에 존재하는 제품군만 표시 (기본 제품군은 항상 표시)
-const allTopicChips = computed<string[]>(() => {
-  const defaults = effectiveDefaultTopics.value
-  const seen = new Set(defaults.map(t => t.toLowerCase()))
-  const extra = getTopics().filter(t => !seen.has(t.toLowerCase()))
-  return [...defaults, ...extra]
-})
+const allTopicChips = computed<string[]>(() => mergeChips(effectiveDefaultTopics.value, getTopics()))
 
 // ── template refs (for focus management) ──────────────────────────────────────
 
-const titleInput = ref<HTMLInputElement | null>(null)
-const dateInput = ref<HTMLInputElement | null>(null)
 const typeSelectorRef = ref<HTMLElement | null>(null)
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
@@ -389,42 +380,15 @@ const topicChipComputed = computed({
   set: (val: string) => { topicChip.value = val; topicCustom.value = '' },
 })
 
-interface PendingFile {
-  id: string           // pre-generated; used as Attachment.id and ReceiptExtract.attachmentId
-  file: File
-  docType: AttachmentDocType  // document purpose (receipt | warranty | manual)
-  ocrState: 'idle' | 'running' | 'done' | 'error'
-  ocrProgress: number  // 0–100
-  ocrStatus: string
-  ocrResult: OcrResult | null
-  ocrError: string | null
-}
-
-const pendingFiles = ref<PendingFile[]>([])
+const { pendingFiles, addFiles, removeFile, syncDocType, runOcr } = usePendingFiles()
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function todayIso(): string {
-  return new Date().toISOString().split('T')[0] ?? ''
-}
-
 function clampPurchaseDate(): void {
   if (!form.purchaseDate) return
-  const year = new Date(form.purchaseDate).getFullYear()
-  const today = todayIso()
-  if (year > new Date().getFullYear()) {
-    form.purchaseDate = today
-  } else if (year < 1900) {
-    form.purchaseDate = '1900-01-01'
-  }
-}
-
-function warrantyEndDate(purchaseDate: string, months: number): string {
-  const d = new Date(purchaseDate)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().split('T')[0] ?? ''
+  form.purchaseDate = clampPurchaseDateStr(form.purchaseDate)
 }
 
 function formatSize(bytes: number): string {
@@ -437,10 +401,7 @@ function formatSize(bytes: number): string {
 
 function selectType(t: ItemDocType): void {
   form.type = t
-  // 파일 docType을 새 종류에 맞게 동기화
-  for (const pf of pendingFiles.value) {
-    pf.docType = t as AttachmentDocType
-  }
+  syncDocType(t as AttachmentDocType)
   // 종류 변경 시 type-selector가 상단에서 24px 아래에 오도록 스크롤
   nextTick(() => {
     const el = typeSelectorRef.value
@@ -460,47 +421,8 @@ const { priceDisplay, onPriceInput, clearPrice, setPrice } = usePriceInput(toRef
 function onFilesSelected(e: Event): void {
   const input = e.target as HTMLInputElement
   if (!input.files) return
-  for (const file of Array.from(input.files)) {
-    pendingFiles.value.push({
-      id: crypto.randomUUID(),
-      file,
-      docType: form.type as AttachmentDocType,
-      ocrState: 'idle',
-      ocrProgress: 0,
-      ocrStatus: '',
-      ocrResult: null,
-      ocrError: null,
-    })
-  }
+  addFiles(Array.from(input.files), form.type as AttachmentDocType)
   input.value = '' // allow re-selecting the same file
-}
-
-function removeFile(idx: number): void {
-  pendingFiles.value.splice(idx, 1)
-}
-
-// ── OCR ───────────────────────────────────────────────────────────────────────
-
-async function runOcr(pf: PendingFile): Promise<void> {
-  if (!import.meta.client) return
-  if (!pf.file.type.startsWith('image/')) return
-
-  pf.ocrState = 'running'
-  pf.ocrProgress = 0
-  pf.ocrError = null
-  pf.ocrResult = null
-
-  try {
-    pf.ocrResult = await recognize(pf.file, (p: OcrProgress) => {
-      pf.ocrProgress = p.percent
-      pf.ocrStatus = p.status
-    })
-    pf.ocrState = 'done'
-  } catch (err) {
-    console.error('[OCR] 실패:', err)
-    pf.ocrState = 'error'
-    pf.ocrError = 'OCR 처리 중 오류가 발생했습니다. 다시 시도하거나 직접 입력해 주세요.'
-  }
 }
 
 function applyMerchant(pf: PendingFile): void {
@@ -649,7 +571,7 @@ async function submit(): Promise<void> {
 
   // 종류별 기본 색조 (비활성)
   &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
-  &--warranty { --chip-color: #2F9E44; --chip-bg: #EBFBEE; }
+  &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
   &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
 
   &--active {
@@ -768,7 +690,7 @@ async function submit(): Promise<void> {
 
     &:hover {
       color: var(--color-text);
-      background: #CED4DA;
+      background: var(--color-neutral);
     }
 
     &:focus-visible {
@@ -794,11 +716,11 @@ async function submit(): Promise<void> {
   &__error {
     margin-top: var(--space-1);
     font-size: 0.8125rem;
-    color: #E03131;
+    color: var(--color-error);
   }
 
   &--error .field__input {
-    border-color: #E03131;
+    border-color: var(--color-error);
   }
 
   // 공간 필드: 설명서일 때 강조
@@ -941,8 +863,8 @@ async function submit(): Promise<void> {
     transition: color var(--transition-fast), background var(--transition-fast);
 
     &:hover {
-      color: #E03131;
-      background: #FFF0F0;
+      color: var(--color-error);
+      background: var(--color-error-bg);
     }
   }
 }
@@ -1031,9 +953,9 @@ async function submit(): Promise<void> {
 .ocr-error {
   margin-top: var(--space-2);
   font-size: 0.8125rem;
-  color: #C92A2A;
+  color: var(--color-error-dark);
   background: #FFF5F5;
-  border: 1px solid #FFC9C9;
+  border: 1px solid var(--color-error-border);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
 }
@@ -1110,7 +1032,7 @@ async function submit(): Promise<void> {
 
 .submit-error {
   font-size: 0.875rem;
-  color: #E03131;
+  color: var(--color-error);
   text-align: center;
   margin-bottom: var(--space-3);
 }

@@ -22,6 +22,33 @@ export function formatAmount(n: number): string {
   return n.toLocaleString('ko-KR') + '원'
 }
 
+// ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
+
+export function todayIso(): string {
+  return new Date().toISOString().split('T')[0] ?? ''
+}
+
+/** 구매일 문자열을 유효 범위(1900 ~ 올해)로 클램핑 */
+export function clampPurchaseDateStr(dateStr: string): string {
+  const year = new Date(dateStr).getFullYear()
+  if (year > new Date().getFullYear()) return todayIso()
+  if (year < 1900) return '1900-01-01'
+  return dateStr
+}
+
+/** 구매일 + 보증 개월 수로 보증 만료일 계산 */
+export function warrantyEndDate(purchaseDate: string, months: number): string {
+  const d = new Date(purchaseDate)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().split('T')[0] ?? ''
+}
+
+/** defaults + extras(case-insensitive dedup) 칩 목록 병합 */
+export function mergeChips(defaults: string[], extras: string[]): string[] {
+  const seen = new Set(defaults.map(t => t.toLowerCase()))
+  return [...defaults, ...extras.filter(t => !seen.has(t.toLowerCase()))]
+}
+
 // ── 보증 상태 ──────────────────────────────────────────────────────────────────
 
 export interface WarrantyStatus { label: string; type: 'normal' | 'soon' | 'expired' }

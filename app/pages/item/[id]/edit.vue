@@ -181,6 +181,8 @@
 </template>
 
 <script setup lang="ts">
+import { todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
+
 // ── 라우트 ────────────────────────────────────────────────────────────────────
 
 const route = useRoute()
@@ -193,12 +195,7 @@ const { getItem, updateItem, getTopics } = useItems()
 const { addCustomTopic, effectiveDefaultTopics } = useCustomTopics()
 
 // 실제 아이템에 존재하는 제품군만 표시 (기본 제품군은 항상 표시)
-const allTopicChips = computed<string[]>(() => {
-  const defaults = effectiveDefaultTopics.value
-  const seen = new Set(defaults.map(t => t.toLowerCase()))
-  const extra = getTopics().filter(t => !seen.has(t.toLowerCase()))
-  return [...defaults, ...extra]
-})
+const allTopicChips = computed<string[]>(() => mergeChips(effectiveDefaultTopics.value, getTopics()))
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
@@ -251,24 +248,9 @@ const { priceDisplay, onPriceInput, clearPrice, setPrice } = usePriceInput(toRef
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function todayIso(): string {
-  return new Date().toISOString().split('T')[0] ?? ''
-}
-
 function clampPurchaseDate(): void {
   if (!form.purchaseDate) return
-  const year = new Date(form.purchaseDate).getFullYear()
-  if (year > new Date().getFullYear()) {
-    form.purchaseDate = todayIso()
-  } else if (year < 1900) {
-    form.purchaseDate = '1900-01-01'
-  }
-}
-
-function warrantyEndDate(purchaseDate: string, months: number): string {
-  const d = new Date(purchaseDate)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().split('T')[0] ?? ''
+  form.purchaseDate = clampPurchaseDateStr(form.purchaseDate)
 }
 
 // ── 제품 선택 ────────────────────────────────────────────────────────────────
@@ -461,7 +443,7 @@ async function submit(): Promise<void> {
 
     &:hover {
       color: var(--color-text);
-      background: #CED4DA;
+      background: var(--color-neutral);
     }
 
     &:focus-visible {
@@ -484,11 +466,11 @@ async function submit(): Promise<void> {
   &__error {
     margin-top: var(--space-1);
     font-size: 0.8125rem;
-    color: #E03131;
+    color: var(--color-error);
   }
 
   &--error .field__input {
-    border-color: #E03131;
+    border-color: var(--color-error);
   }
 }
 
@@ -539,7 +521,7 @@ async function submit(): Promise<void> {
 
 .submit-error {
   font-size: 0.875rem;
-  color: #E03131;
+  color: var(--color-error);
   text-align: center;
   margin-bottom: var(--space-3);
 }

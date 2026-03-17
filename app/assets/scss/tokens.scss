@@ -21,6 +21,19 @@
   // Border
   --color-border:      #DEE2E6;
 
+  // Semantic: error / success
+  --color-error:       #E03131;
+  --color-error-dark:  #C92A2A;
+  --color-error-bg:    #FFF0F0;
+  --color-error-bg-alt:#FFF5F5;
+  --color-error-border:#FFC9C9;
+  --color-success:     #2F9E44;
+  --color-success-bg:  #EBFBEE;
+  --color-success-border: #B2F2BB;
+
+  // Neutral
+  --color-neutral:     #CED4DA;
+
   // Spacing scale
   --space-1: 4px;
   --space-2: 8px;

@@ -362,7 +362,7 @@ function onFileSelected(e: Event): void {
     padding-left: var(--space-1);
     line-height: 1.5;
 
-    &--warning { color: #C92A2A; }
+    &--warning { color: var(--color-error-dark); }
   }
 
   &__actions {
@@ -377,7 +377,7 @@ function onFileSelected(e: Event): void {
 .hint-warning-icon {
   flex-shrink: 0;
   margin-top: 1px;
-  color: #C92A2A;
+  color: var(--color-error-dark);
 }
 
 // ── 마지막 백업 상태 ──────────────────────────────────────────────────────────
@@ -441,7 +441,7 @@ function onFileSelected(e: Event): void {
     outline-offset: 2px;
   }
 
-  &--destructive { border-color: #FFC9C9; }
+  &--destructive { border-color: var(--color-error-border); }
 
   &__text  { flex: 1; }
 
@@ -508,27 +508,27 @@ function onFileSelected(e: Event): void {
   margin-bottom: var(--space-2);
 
   &--error {
-    color: #C92A2A;
-    background: #FFF5F5;
-    border: 1px solid #FFC9C9;
+    color: var(--color-error-dark);
+    background: var(--color-error-bg-alt);
+    border: 1px solid var(--color-error-border);
   }
 
   &--success {
-    color: #2F9E44;
-    background: #EBFBEE;
-    border: 1px solid #B2F2BB;
+    color: var(--color-success);
+    background: var(--color-success-bg);
+    border: 1px solid var(--color-success-border);
     flex-wrap: wrap;
   }
 
   &__link {
-    color: #2F9E44;
+    color: var(--color-success);
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 2px;
     margin-left: auto;
 
     &:focus-visible {
-      outline: 2px solid #2F9E44;
+      outline: 2px solid var(--color-success);
       outline-offset: 2px;
       border-radius: 2px;
     }
@@ -538,8 +538,8 @@ function onFileSelected(e: Event): void {
 // ── 가져오기 확인 ─────────────────────────────────────────────────────────────
 
 .import-confirm {
-  background: #FFF5F5;
-  border: 1.5px solid #FFC9C9;
+  background: var(--color-error-bg-alt);
+  border: 1.5px solid var(--color-error-border);
   border-radius: var(--radius-sm);
   padding: var(--space-4);
   margin-bottom: var(--space-3);
@@ -551,12 +551,12 @@ function onFileSelected(e: Event): void {
     margin-bottom: var(--space-2);
   }
 
-  &__icon { flex-shrink: 0; color: #C92A2A; }
+  &__icon { flex-shrink: 0; color: var(--color-error-dark); }
 
   &__title {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: #C92A2A;
+    color: var(--color-error-dark);
   }
 
   &__desc {
@@ -597,9 +597,9 @@ function onFileSelected(e: Event): void {
 
     &--ok {
       color: #fff;
-      border: 1.5px solid #C92A2A;
-      background: #C92A2A;
-      &:hover { background: #A61E1E; border-color: #A61E1E; }
+      border: 1.5px solid var(--color-error-dark);
+      background: var(--color-error-dark);
+      &:hover { background: color-mix(in srgb, var(--color-error-dark) 85%, #000); border-color: color-mix(in srgb, var(--color-error-dark) 85%, #000); }
     }
   }
 }
