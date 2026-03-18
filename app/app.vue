@@ -48,7 +48,12 @@
         class="tab-bar__tab tab-bar__tab--add"
         aria-label="새 항목 추가"
       >
-        <span class="tab-bar__add-btn" aria-hidden="true">+</span>
+        <span class="tab-bar__add-btn" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display:block">
+          <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </span>
       </NuxtLink>
 
       <NuxtLink
@@ -208,10 +213,6 @@ const route = useRoute()
 
     background: var(--color-primary);
     color: var(--color-btn-text);
-    font-size: 1.875rem;
-    font-weight: 300;
-    line-height: 1;
-    padding-bottom: 4px; // optical center for +
 
     box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.40);
     transition: transform var(--transition-fast), box-shadow var(--transition-fast);
