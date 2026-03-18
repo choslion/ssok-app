@@ -1109,6 +1109,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   background: var(--color-bg);
 
   &--image {
+    padding-top: var(--space-6);
     display: flex;
     flex-direction: column;
     align-items: center;
