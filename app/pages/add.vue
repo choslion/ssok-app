@@ -4,8 +4,8 @@
     <!-- 페이지 상단 내비 -->
     <PageHeader title="새 항목 추가" back="/" />
 
-    <!-- 항목 종류 선택 (필수) -->
-    <div ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
+    <!-- 항목 종류 선택: 파일이 없을 때만 표시 -->
+    <div v-if="pendingFiles.length === 0" ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
       <button
         v-for="t in TYPE_OPTIONS"
         :key="t.value"
@@ -18,6 +18,111 @@
     </div>
 
     <form novalidate @submit.prevent="submit">
+
+      <!-- ── 파일 첨부 ──────────────────────────────────────── -->
+      <section class="form-section">
+        <h2 class="form-section__heading">
+          파일 첨부 <span class="form-section__optional">(선택)</span>
+        </h2>
+
+        <label class="file-picker">
+          <input
+            type="file"
+            multiple
+            accept="image/*,.pdf"
+            class="file-picker__input"
+            aria-label="파일 선택 (사진 또는 PDF)"
+            @change="onFilesSelected"
+          />
+          <span class="file-picker__label">＋ 파일 선택 (사진 / PDF)</span>
+        </label>
+
+        <ul v-if="pendingFiles.length" class="file-list">
+          <li v-for="(pf, idx) in pendingFiles" :key="pf.id" class="file-item">
+
+            <!-- 파일명 + 삭제 버튼 -->
+            <div class="file-item__header">
+              <div class="file-item__meta">
+                <span class="file-item__name">{{ pf.file.name }}</span>
+                <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
+              </div>
+              <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(idx)">✕</button>
+            </div>
+
+            <!-- 문서 종류 칩 -->
+            <div class="file-type-chips" role="group" :aria-label="pf.file.name + ' 문서 종류 선택'">
+              <button
+                v-for="opt in TYPE_OPTIONS"
+                :key="opt.value"
+                type="button"
+                class="file-type-chip"
+                :class="['file-type-chip--' + opt.value, { 'file-type-chip--active': pf.docType === opt.value }]"
+                :aria-pressed="pf.docType === opt.value"
+                @click="pf.docType = (opt.value as AttachmentDocType)"
+              >{{ opt.label }}</button>
+            </div>
+
+            <!-- OCR 추출 버튼: 이미지 영수증 파일이고 실행 중이 아닐 때만 표시 -->
+            <button
+              v-if="pf.file.type.startsWith('image/') && pf.docType === 'receipt' && pf.ocrState !== 'running'"
+              type="button"
+              class="file-item__ocr-btn"
+              :aria-label="(pf.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + pf.file.name"
+              @click="runOcr(pf)"
+            >{{ pf.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
+
+            <!-- OCR 진행 중 -->
+            <div v-if="pf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
+              <div class="ocr-progress-bar">
+                <div class="ocr-progress-bar__fill" :style="{ width: pf.ocrProgress + '%' }"></div>
+              </div>
+              <p class="ocr-panel__status">{{ pf.ocrStatus || 'OCR 준비 중…' }} {{ pf.ocrProgress }}%</p>
+              <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
+            </div>
+
+            <!-- OCR 오류 -->
+            <p v-if="pf.ocrState === 'error'" class="ocr-error" role="alert">{{ pf.ocrError }}</p>
+
+            <!-- OCR 결과: 후보 제시 -->
+            <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
+              <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
+
+              <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
+                <div class="ocr-candidate__body">
+                  <span class="ocr-candidate__label">상호</span>
+                  <span class="ocr-candidate__value">{{ pf.ocrResult.merchant.value }}</span>
+                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.merchant.confidence) }}</span>
+                </div>
+                <button type="button" class="ocr-apply-btn" @click="applyMerchant(pf)">구매처에 적용</button>
+              </div>
+
+              <div v-if="pf.ocrResult.date" class="ocr-candidate">
+                <div class="ocr-candidate__body">
+                  <span class="ocr-candidate__label">날짜</span>
+                  <span class="ocr-candidate__value">{{ pf.ocrResult.date.value }}</span>
+                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.date.confidence) }}</span>
+                </div>
+                <button type="button" class="ocr-apply-btn" @click="applyDate(pf)">구매일에 적용</button>
+              </div>
+
+              <div v-if="pf.ocrResult.amount" class="ocr-candidate">
+                <div class="ocr-candidate__body">
+                  <span class="ocr-candidate__label">금액</span>
+                  <span class="ocr-candidate__value">{{ pf.ocrResult.amount.value }}</span>
+                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.amount.confidence) }}</span>
+                </div>
+                <button type="button" class="ocr-apply-btn" @click="applyAmount(pf)">금액에 적용</button>
+              </div>
+
+              <p
+                v-if="!pf.ocrResult.merchant && !pf.ocrResult.date && !pf.ocrResult.amount"
+                class="ocr-panel__empty"
+              >텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
+            </div>
+
+          </li>
+        </ul>
+      </section>
 
       <!-- ── 기본 정보 ──────────────────────────────────────── -->
       <section class="form-section">
@@ -74,10 +179,10 @@
         </div>
 
         <!-- 보관 장소 (설명서일 때 두드러지게 표시) -->
-        <div class="field" :class="{ 'field--space-featured': form.type === 'manual' }">
+        <div class="field" :class="{ 'field--space-featured': derivedType === 'manual' }">
           <label class="field__label">
             보관 장소
-            <span v-if="form.type !== 'manual'" class="form-section__optional">(선택)</span>
+            <span v-if="derivedType !== 'manual'" class="form-section__optional">(선택)</span>
           </label>
           <ChipRow
             v-model="spaceChipComputed"
@@ -109,7 +214,7 @@
         </h2>
 
         <!-- 구매일: 설명서일 때는 숨김 -->
-        <div v-if="form.type !== 'manual'" class="field" :class="{ 'field--error': errors.purchaseDate }">
+        <div v-if="derivedType !== 'manual'" class="field" :class="{ 'field--error': errors.purchaseDate }">
           <label class="field__label" for="f-date">구매일</label>
           <div class="field__input-wrap">
             <input
@@ -168,7 +273,7 @@
         </div>
 
         <!-- 보증 기간: 보증서 종류일 때만 표시 -->
-        <div v-if="form.type === 'warranty'" class="field" :class="{ 'field--error': errors.warrantyMonths }">
+        <div v-if="derivedType === 'warranty'" class="field" :class="{ 'field--error': errors.warrantyMonths }">
           <label class="field__label" for="f-warranty">보증 기간</label>
           <div class="field__input-row">
             <input
@@ -188,106 +293,6 @@
           <p v-if="errors.warrantyMonths" id="f-warranty-error" class="field__error" role="alert">{{ errors.warrantyMonths }}</p>
         </div>
 
-      </section>
-
-      <!-- ── 파일 첨부 ──────────────────────────────────────── -->
-      <section class="form-section">
-        <h2 class="form-section__heading">
-          파일 첨부 <span class="form-section__optional">(선택)</span>
-        </h2>
-
-        <label class="file-picker">
-          <input
-            type="file"
-            multiple
-            accept="image/*,.pdf"
-            class="file-picker__input"
-            aria-label="파일 선택 (사진 또는 PDF)"
-            @change="onFilesSelected"
-          />
-          <span class="file-picker__label">＋ 파일 선택 (사진 / PDF)</span>
-        </label>
-
-        <ul v-if="pendingFiles.length" class="file-list">
-          <li v-for="(pf, idx) in pendingFiles" :key="pf.id" class="file-item">
-            <div class="file-item__meta">
-              <span class="file-item__name">{{ pf.file.name }}</span>
-              <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
-            </div>
-            <div class="file-item__controls">
-              <select
-                v-model="pf.docType"
-                class="file-item__kind"
-                :aria-label="pf.file.name + ' 파일 종류 선택'"
-              >
-                <option value="receipt">영수증</option>
-                <option value="manual">제품 설명서</option>
-                <option value="warranty">보증서</option>
-              </select>
-              <!-- OCR 추출 버튼: 이미지 영수증 파일이고 실행 중이 아닐 때만 표시 -->
-              <button
-                v-if="pf.file.type.startsWith('image/') && pf.docType === 'receipt' && pf.ocrState !== 'running'"
-                type="button"
-                class="file-item__ocr-btn"
-                :aria-label="(pf.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + pf.file.name"
-                @click="runOcr(pf)"
-              >{{ pf.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
-              <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(idx)">
-                ✕
-              </button>
-            </div>
-
-            <!-- OCR 진행 중 -->
-            <div v-if="pf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
-              <div class="ocr-progress-bar">
-                <div class="ocr-progress-bar__fill" :style="{ width: pf.ocrProgress + '%' }"></div>
-              </div>
-              <p class="ocr-panel__status">{{ pf.ocrStatus || 'OCR 준비 중…' }} {{ pf.ocrProgress }}%</p>
-              <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
-            </div>
-
-            <!-- OCR 오류 -->
-            <p v-if="pf.ocrState === 'error'" class="ocr-error" role="alert">{{ pf.ocrError }}</p>
-
-            <!-- OCR 결과: 후보 제시 -->
-            <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
-              <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
-
-              <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">상호</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.merchant.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.merchant.confidence) }}</span>
-                </div>
-                <button type="button" class="ocr-apply-btn" @click="applyMerchant(pf)">구매처에 적용</button>
-              </div>
-
-              <div v-if="pf.ocrResult.date" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">날짜</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.date.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.date.confidence) }}</span>
-                </div>
-                <button type="button" class="ocr-apply-btn" @click="applyDate(pf)">구매일에 적용</button>
-              </div>
-
-              <div v-if="pf.ocrResult.amount" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">금액</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.amount.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.amount.confidence) }}</span>
-                </div>
-                <button type="button" class="ocr-apply-btn" @click="applyAmount(pf)">금액에 적용</button>
-              </div>
-
-              <p
-                v-if="!pf.ocrResult.merchant && !pf.ocrResult.date && !pf.ocrResult.amount"
-                class="ocr-panel__empty"
-              >텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
-            </div>
-
-          </li>
-        </ul>
       </section>
 
       <!-- ── 제출 오류 메시지 ─────────────────────────────────── -->
@@ -380,9 +385,19 @@ const topicChipComputed = computed({
   set: (val: string) => { topicChip.value = val; topicCustom.value = '' },
 })
 
-const { pendingFiles, addFiles, removeFile, syncDocType, runOcr } = usePendingFiles()
+const { pendingFiles, addFiles, removeFile, runOcr } = usePendingFiles()
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
+
+// 파일이 있으면 파일별 docType에서 아이템 타입을 도출, 없으면 form.type 사용
+// 우선순위: warranty > receipt > manual
+const derivedType = computed<ItemDocType>(() => {
+  if (pendingFiles.value.length === 0) return form.type
+  const types = pendingFiles.value.map(pf => pf.docType)
+  if (types.includes('warranty')) return 'warranty'
+  if (types.includes('receipt')) return 'receipt'
+  return 'manual'
+})
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -401,7 +416,6 @@ function formatSize(bytes: number): string {
 
 function selectType(t: ItemDocType): void {
   form.type = t
-  syncDocType(t as AttachmentDocType)
   // 종류 변경 시 type-selector가 상단에서 24px 아래에 오도록 스크롤
   nextTick(() => {
     const el = typeSelectorRef.value
@@ -462,7 +476,7 @@ function validate(): boolean {
 
   // 보증 기간 범위 검사 (보증서 & 입력된 경우에만)
   if (
-    form.type === 'warranty' &&
+    derivedType.value === 'warranty' &&
     form.warrantyMonths !== '' &&
     typeof form.warrantyMonths === 'number' &&
     form.warrantyMonths < 0
@@ -486,13 +500,13 @@ async function submit(): Promise<void> {
     const item: Item = {
       id,
       title: form.title.trim(),
-      type: form.type,
+      type: derivedType.value,
       attachmentIds,
       ...(formTopic.value && { topic: formTopic.value }),
       ...(formSpace.value && { space: formSpace.value }),
       ...(form.purchaseDate && { purchaseDate: form.purchaseDate }),
       ...(form.store.trim() && { store: form.store.trim() }),
-      ...(form.type === 'warranty' &&
+      ...(derivedType.value === 'warranty' &&
         form.warrantyMonths !== '' &&
         typeof form.warrantyMonths === 'number' &&
         form.purchaseDate && {
@@ -790,16 +804,18 @@ async function submit(): Promise<void> {
 
 .file-item {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 
-  @media (max-width: 480px) {
-    flex-direction: column;
-    align-items: flex-start;
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   &__meta {
@@ -823,37 +839,10 @@ async function submit(): Promise<void> {
     margin-top: 2px;
   }
 
-  &__controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-shrink: 0;
-  }
-
-  &__kind {
-    padding: var(--space-1) calc(var(--space-2) + 20px) var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: 0.8125rem;
-    font-family: inherit;
-    color: var(--color-text);
-    background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23868E96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-      no-repeat right var(--space-2) center,
-      var(--color-surface);
-    cursor: pointer;
-    appearance: none;
-
-    &:focus-visible {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.18);
-    }
-  }
-
   &__remove {
     width: 28px;
     height: 28px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -869,9 +858,47 @@ async function submit(): Promise<void> {
   }
 }
 
+// ── 파일별 문서 종류 칩 ────────────────────────────────────────────────────────
+
+.file-type-chips {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.file-type-chip {
+  flex: 1;
+  padding: var(--space-2) var(--space-1);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-sub);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+
+  &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
+  &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
+  &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
+
+  &--active {
+    border-color: var(--chip-color);
+    color: var(--chip-color);
+    background: var(--chip-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--chip-color, var(--color-primary));
+    outline-offset: 2px;
+  }
+}
+
 // ── OCR 추출 버튼 ─────────────────────────────────────────────────────────────
 
 .file-item__ocr-btn {
+  align-self: flex-start;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
@@ -895,7 +922,7 @@ async function submit(): Promise<void> {
 // ── OCR 패널 ──────────────────────────────────────────────────────────────────
 
 .ocr-panel {
-  margin-top: var(--space-3);
+  margin-top: var(--space-1);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   font-size: 0.8125rem;
@@ -951,7 +978,6 @@ async function submit(): Promise<void> {
 }
 
 .ocr-error {
-  margin-top: var(--space-2);
   font-size: 0.8125rem;
   color: var(--color-error-dark);
   background: #FFF5F5;
