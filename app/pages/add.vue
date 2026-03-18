@@ -25,109 +25,178 @@
           파일 첨부 <span class="form-section__optional">(선택)</span>
         </h2>
 
-        <label class="file-picker">
-          <input
-            type="file"
-            multiple
-            accept="image/*,.pdf"
-            class="file-picker__input"
-            aria-label="파일 선택 (사진 또는 PDF)"
-            @change="onFilesSelected"
-          />
-          <span class="file-picker__label">＋ 파일 선택 (사진 / PDF)</span>
-        </label>
+        <!-- ── 설명서 촬영 세션 ───────────────────────────────── -->
+        <div v-if="captureMode" class="capture-session">
 
-        <ul v-if="pendingFiles.length" class="file-list">
-          <li v-for="(pf, idx) in pendingFiles" :key="pf.id" class="file-item">
+          <div class="capture-session__header">
+            <span class="capture-session__title">{{ captureDocType === 'warranty' ? '보증서' : '설명서' }} 촬영 중</span>
+            <span class="capture-session__count" aria-live="polite">현재 {{ capturePages.length }}장</span>
+          </div>
 
-            <!-- 파일명 + 삭제 버튼 -->
-            <div class="file-item__header">
-              <div class="file-item__meta">
-                <span class="file-item__name">{{ pf.file.name }}</span>
-                <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
-              </div>
-              <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(idx)">✕</button>
-            </div>
-
-            <!-- 문서 종류 칩 -->
-            <div class="file-type-chips" role="group" :aria-label="pf.file.name + ' 문서 종류 선택'">
+          <!-- 촬영된 페이지 썸네일 그리드 -->
+          <div v-if="capturePages.length > 0" class="capture-grid" role="list" aria-label="촬영된 설명서 페이지 목록">
+            <div v-for="(pf, idx) in capturePages" :key="pf.id" class="capture-thumb" role="listitem">
+              <img
+                :src="thumbnailUrls.get(pf.id)"
+                :alt="(idx + 1) + '번째 페이지'"
+                class="capture-thumb__img"
+              />
+              <span class="capture-thumb__num" aria-hidden="true">{{ idx + 1 }}</span>
               <button
-                v-for="opt in TYPE_OPTIONS"
-                :key="opt.value"
                 type="button"
-                class="file-type-chip"
-                :class="['file-type-chip--' + opt.value, { 'file-type-chip--active': pf.docType === opt.value }]"
-                :aria-pressed="pf.docType === opt.value"
-                @click="pf.docType = (opt.value as AttachmentDocType)"
-              >{{ opt.label }}</button>
+                class="capture-thumb__remove"
+                :aria-label="(idx + 1) + '번째 페이지 제거'"
+                @click="removeCaptureFile(idx)"
+              >✕</button>
             </div>
+          </div>
+          <p v-else class="capture-session__empty">첫 번째 페이지를 추가해 주세요.</p>
 
-            <!-- OCR 추출 버튼: 이미지 영수증 파일이고 실행 중이 아닐 때만 표시 -->
+          <!-- 세션 액션 버튼 -->
+          <div class="capture-session__actions">
+            <label class="capture-session__add-btn">
+              <input type="file" accept="image/*" class="sr-only" @change="onCaptureFilesSelected" />
+              다음 장 추가
+            </label>
             <button
-              v-if="pf.file.type.startsWith('image/') && pf.docType === 'receipt' && pf.ocrState !== 'running'"
               type="button"
-              class="file-item__ocr-btn"
-              :aria-label="(pf.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + pf.file.name"
-              @click="runOcr(pf)"
-            >{{ pf.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
+              class="capture-session__end-btn"
+              :disabled="capturePages.length === 0"
+              @click="endCapture"
+            >촬영 종료</button>
+            <button
+              type="button"
+              class="capture-session__cancel-btn"
+              @click="cancelCapture"
+            >취소</button>
+          </div>
 
-            <!-- OCR 진행 중 -->
-            <div v-if="pf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
-              <div class="ocr-progress-bar">
-                <div class="ocr-progress-bar__fill" :style="{ width: pf.ocrProgress + '%' }"></div>
-              </div>
-              <p class="ocr-panel__status">{{ pf.ocrStatus || 'OCR 준비 중…' }} {{ pf.ocrProgress }}%</p>
-              <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
-            </div>
+        </div>
 
-            <!-- OCR 오류 -->
-            <p v-if="pf.ocrState === 'error'" class="ocr-error" role="alert">{{ pf.ocrError }}</p>
+        <!-- ── 일반 파일 업로드 경로 ─────────────────────────── -->
+        <template v-else>
 
-            <!-- OCR 결과: 후보 제시 -->
-            <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
-              <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
+          <label class="file-picker">
+            <input
+              type="file"
+              multiple
+              accept="image/*,.pdf"
+              class="file-picker__input"
+              aria-label="파일 선택 (사진 또는 PDF)"
+              @change="onFilesSelected"
+            />
+            <span class="file-picker__label">＋ 파일 선택 (사진 / PDF)</span>
+          </label>
 
-              <p
-                v-if="isLowConfidenceResult(pf.ocrResult)"
-                class="ocr-panel__warning"
-                role="note"
-              >인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
+          <div class="capture-start-row">
+            <button type="button" class="manual-capture-btn manual-capture-btn--warranty" @click="startCapture('warranty')">
+              보증서 촬영 시작
+            </button>
+            <button type="button" class="manual-capture-btn" @click="startCapture('manual')">
+              설명서 촬영 시작
+            </button>
+          </div>
 
-              <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">상호</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.merchant.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.merchant.confidence) }}</span>
+          <p v-if="manualPageCount > 1" class="manual-set-hint">
+            설명서 {{ manualPageCount }}페이지가 하나의 세트로 저장됩니다.
+          </p>
+          <p v-if="warrantyPageCount > 1" class="manual-set-hint manual-set-hint--warranty">
+            보증서 {{ warrantyPageCount }}페이지가 하나의 세트로 저장됩니다.
+          </p>
+
+          <ul v-if="pendingFiles.length" class="file-list">
+            <li v-for="(pf, idx) in pendingFiles" :key="pf.id" class="file-item">
+
+              <!-- 파일명 + 삭제 버튼 -->
+              <div class="file-item__header">
+                <div class="file-item__meta">
+                  <span class="file-item__name">{{ pf.file.name }}</span>
+                  <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
                 </div>
-                <button type="button" class="ocr-apply-btn" @click="applyMerchant(pf)">구매처에 적용</button>
+                <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(idx)">✕</button>
               </div>
 
-              <div v-if="pf.ocrResult.date" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">날짜</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.date.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.date.confidence) }}</span>
+              <!-- 문서 종류 칩 -->
+              <div class="file-type-chips" role="group" :aria-label="pf.file.name + ' 문서 종류 선택'">
+                <button
+                  v-for="opt in TYPE_OPTIONS"
+                  :key="opt.value"
+                  type="button"
+                  class="file-type-chip"
+                  :class="['file-type-chip--' + opt.value, { 'file-type-chip--active': pf.docType === opt.value }]"
+                  :aria-pressed="pf.docType === opt.value"
+                  @click="pf.docType = (opt.value as AttachmentDocType)"
+                >{{ opt.label }}</button>
+              </div>
+
+              <!-- OCR 추출 버튼: 이미지 영수증 파일이고 실행 중이 아닐 때만 표시 -->
+              <button
+                v-if="pf.file.type.startsWith('image/') && pf.docType === 'receipt' && pf.ocrState !== 'running'"
+                type="button"
+                class="file-item__ocr-btn"
+                :aria-label="(pf.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + pf.file.name"
+                @click="runOcr(pf)"
+              >{{ pf.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
+
+              <!-- OCR 진행 중 -->
+              <div v-if="pf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
+                <div class="ocr-progress-bar">
+                  <div class="ocr-progress-bar__fill" :style="{ width: pf.ocrProgress + '%' }"></div>
                 </div>
-                <button type="button" class="ocr-apply-btn" @click="applyDate(pf)">구매일에 적용</button>
+                <p class="ocr-panel__status">{{ pf.ocrStatus || 'OCR 준비 중…' }} {{ pf.ocrProgress }}%</p>
+                <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
               </div>
 
-              <div v-if="pf.ocrResult.amount" class="ocr-candidate">
-                <div class="ocr-candidate__body">
-                  <span class="ocr-candidate__label">금액</span>
-                  <span class="ocr-candidate__value">{{ pf.ocrResult.amount.value }}</span>
-                  <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.amount.confidence) }}</span>
+              <!-- OCR 오류 -->
+              <p v-if="pf.ocrState === 'error'" class="ocr-error" role="alert">{{ pf.ocrError }}</p>
+
+              <!-- OCR 결과: 후보 제시 -->
+              <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
+                <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
+
+                <p
+                  v-if="isLowConfidenceResult(pf.ocrResult)"
+                  class="ocr-panel__warning"
+                  role="note"
+                >인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
+
+                <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
+                  <div class="ocr-candidate__body">
+                    <span class="ocr-candidate__label">상호</span>
+                    <span class="ocr-candidate__value">{{ pf.ocrResult.merchant.value }}</span>
+                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.merchant.confidence) }}</span>
+                  </div>
+                  <button type="button" class="ocr-apply-btn" @click="applyMerchant(pf)">구매처에 적용</button>
                 </div>
-                <button type="button" class="ocr-apply-btn" @click="applyAmount(pf)">금액에 적용</button>
+
+                <div v-if="pf.ocrResult.date" class="ocr-candidate">
+                  <div class="ocr-candidate__body">
+                    <span class="ocr-candidate__label">날짜</span>
+                    <span class="ocr-candidate__value">{{ pf.ocrResult.date.value }}</span>
+                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.date.confidence) }}</span>
+                  </div>
+                  <button type="button" class="ocr-apply-btn" @click="applyDate(pf)">구매일에 적용</button>
+                </div>
+
+                <div v-if="pf.ocrResult.amount" class="ocr-candidate">
+                  <div class="ocr-candidate__body">
+                    <span class="ocr-candidate__label">금액</span>
+                    <span class="ocr-candidate__value">{{ pf.ocrResult.amount.value }}</span>
+                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.amount.confidence) }}</span>
+                  </div>
+                  <button type="button" class="ocr-apply-btn" @click="applyAmount(pf)">금액에 적용</button>
+                </div>
+
+                <p
+                  v-if="!pf.ocrResult.merchant && !pf.ocrResult.date && !pf.ocrResult.amount"
+                  class="ocr-panel__empty"
+                >텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
               </div>
 
-              <p
-                v-if="!pf.ocrResult.merchant && !pf.ocrResult.date && !pf.ocrResult.amount"
-                class="ocr-panel__empty"
-              >텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
-            </div>
+            </li>
+          </ul>
 
-          </li>
-        </ul>
+        </template>
       </section>
 
       <!-- ── 기본 정보 ──────────────────────────────────────── -->
@@ -404,6 +473,81 @@ const derivedType = computed<ItemDocType>(() => {
   if (types.includes('warranty')) return 'warranty'
   if (types.includes('receipt')) return 'receipt'
   return 'manual'
+})
+
+// 설명서·보증서 이미지 파일이 2개 이상이면 세트 힌트 표시
+const manualPageCount = computed(() =>
+  pendingFiles.value.filter(pf => pf.docType === 'manual' && pf.file.type.startsWith('image/')).length
+)
+const warrantyPageCount = computed(() =>
+  pendingFiles.value.filter(pf => pf.docType === 'warranty' && pf.file.type.startsWith('image/')).length
+)
+
+// ── 설명서 촬영 세션 ──────────────────────────────────────────────────────────
+
+const captureMode = ref(false)
+const captureDocType = ref<'manual' | 'warranty'>('manual')
+// pendingFiles 길이: 세션 시작 시점 스냅샷 (세션 파일과 기존 파일 구분)
+const captureStartIdx = ref(0)
+// 세션에서 추가한 파일의 썸네일 URL (id → objectURL)
+const thumbnailUrls = ref(new Map<string, string>())
+
+// 세션에서 추가된 파일 목록
+const capturePages = computed(() => pendingFiles.value.slice(captureStartIdx.value))
+
+function startCapture(docType: 'manual' | 'warranty'): void {
+  captureDocType.value = docType
+  captureStartIdx.value = pendingFiles.value.length
+  captureMode.value = true
+}
+
+function endCapture(): void {
+  captureMode.value = false
+}
+
+function cancelCapture(): void {
+  // 세션 파일 제거 + 썸네일 URL 해제
+  const count = pendingFiles.value.length - captureStartIdx.value
+  for (let i = 0; i < count; i++) {
+    const pf = pendingFiles.value[captureStartIdx.value]
+    if (pf) revokeThumbnail(pf.id)
+    removeFile(captureStartIdx.value)
+  }
+  captureMode.value = false
+}
+
+function onCaptureFilesSelected(e: Event): void {
+  const input = e.target as HTMLInputElement
+  if (!input.files) return
+  const files = Array.from(input.files)
+  addFiles(files, captureDocType.value)
+  // 새로 추가된 파일에 썸네일 URL 생성
+  for (const pf of pendingFiles.value.slice(captureStartIdx.value)) {
+    if (!thumbnailUrls.value.has(pf.id)) {
+      thumbnailUrls.value.set(pf.id, URL.createObjectURL(pf.file))
+    }
+  }
+  input.value = ''
+}
+
+function removeCaptureFile(relativeIdx: number): void {
+  const absoluteIdx = captureStartIdx.value + relativeIdx
+  const pf = pendingFiles.value[absoluteIdx]
+  if (pf) revokeThumbnail(pf.id)
+  removeFile(absoluteIdx)
+}
+
+function revokeThumbnail(id: string): void {
+  const url = thumbnailUrls.value.get(id)
+  if (url) {
+    URL.revokeObjectURL(url)
+    thumbnailUrls.value.delete(id)
+  }
+}
+
+onUnmounted(() => {
+  for (const url of thumbnailUrls.value.values()) URL.revokeObjectURL(url)
+  thumbnailUrls.value.clear()
 })
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -806,6 +950,257 @@ async function submit(): Promise<void> {
     font-size: 0.9375rem;
     color: var(--color-sub);
     pointer-events: none;
+  }
+}
+
+// ── 설명서 촬영 시작 버튼 ─────────────────────────────────────────────────────
+
+.capture-start-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.manual-capture-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-2);
+  border: 1.5px solid #C9BFFF;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #7950F2;
+  background: #F3F0FF;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover { border-color: #7950F2; background: #EAE4FF; }
+
+  &:focus-visible {
+    outline: 2px solid #7950F2;
+    outline-offset: 2px;
+  }
+
+  &--warranty {
+    border-color: #B2F2BB;
+    color: #2F9E44;
+    background: #EBFBEE;
+
+    &:hover { border-color: #2F9E44; background: #D3F9D8; }
+
+    &:focus-visible { outline-color: #2F9E44; }
+  }
+}
+
+// ── 설명서 촬영 세션 ──────────────────────────────────────────────────────────
+
+.capture-session {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1.5px solid #C9BFFF;
+  border-radius: var(--radius-md);
+  background: #F3F0FF;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #5C3DAB;
+  }
+
+  &__count {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #7950F2;
+    background: #fff;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+  }
+
+  &__empty {
+    font-size: 0.875rem;
+    color: #9775FA;
+    text-align: center;
+    padding: var(--space-4) 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  &__add-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    padding: var(--space-3) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: #fff;
+    background: #7950F2;
+    cursor: pointer;
+    text-align: center;
+    transition: background var(--transition-fast);
+
+    &:hover { background: #6741D9; }
+
+    &:focus-within {
+      outline: 2px solid #7950F2;
+      outline-offset: 2px;
+    }
+  }
+
+  &__end-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: var(--space-3) var(--space-2);
+    border: 1.5px solid #7950F2;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: #7950F2;
+    background: #fff;
+    cursor: pointer;
+    transition: background var(--transition-fast), opacity var(--transition-fast);
+
+    &:hover:not(:disabled) { background: #F3F0FF; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    &:focus-visible {
+      outline: 2px solid #7950F2;
+      outline-offset: 2px;
+    }
+  }
+
+  &__cancel-btn {
+    padding: var(--space-3) var(--space-2);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-sub);
+    background: transparent;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+
+    &:hover { background: var(--color-bg); }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-sub);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// ── 촬영 썸네일 그리드 ────────────────────────────────────────────────────────
+
+.capture-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.capture-thumb {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #DDD8FF;
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__num {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  &__remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+
+    &:hover { background: #C92A2A; }
+
+    &:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ── 설명서 세트 안내 ──────────────────────────────────────────────────────────
+
+.manual-set-hint {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: #F3F0FF;
+  border: 1px solid #D0BFFF;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: #7950F2;
+  font-weight: 500;
+
+  &--warranty {
+    background: #EBFBEE;
+    border-color: #B2F2BB;
+    color: #2F9E44;
   }
 }
 

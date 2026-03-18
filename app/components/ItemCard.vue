@@ -21,6 +21,12 @@
       <!-- footer-left 슬롯: 기본값은 보증 상태, 만료 페이지에서 만료일로 교체 가능 -->
       <slot name="footer-left">
         <span
+          v-if="(item.type === 'manual' || item.type === 'warranty') && item.attachmentIds.length > 1"
+          class="item-card__page-count"
+          :class="'item-card__page-count--' + item.type"
+        >{{ item.attachmentIds.length }}페이지</span>
+        <span
+          v-else
           class="item-card__warranty"
           :class="'item-card__warranty--' + warrantyStatus(item.warrantyUntil).type"
         >{{ warrantyStatus(item.warrantyUntil).label }}</span>
@@ -123,6 +129,16 @@ withDefaults(defineProps<{
     &--normal  { color: #2F9E44; background: #EBFBEE; }
     &--soon    { color: #E8590C; background: #FFF4E6; }
     &--expired { color: #868E96; background: #F1F3F5; }
+  }
+
+  &__page-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+
+    &--manual  { color: #7950F2; background: #F3F0FF; }
+    &--warranty { color: #2F9E44; background: #EBFBEE; }
   }
 
   &__amount {

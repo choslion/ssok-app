@@ -64,15 +64,94 @@
 
       <!-- 첨부 파일 섹션 -->
       <section class="attachments">
-        <h2 class="attachments__heading">첨부 파일</h2>
+        <h2 class="attachments__heading">
+          <template v-if="isManualPageSet">{{ item.type === 'warranty' ? '보증서' : '설명서' }} ({{ manualPages.length }}페이지)</template>
+          <template v-else>첨부 파일</template>
+        </h2>
 
         <p v-if="!attachments.length" class="attachments__empty">
           첨부된 파일이 없습니다.
         </p>
 
+        <!-- ── 설명서 페이지 뷰어 ─────────────────────────────── -->
+        <template v-else-if="isManualPageSet">
+
+          <!-- 페이지 네비게이터 -->
+          <div class="page-nav" role="navigation" aria-label="설명서 페이지 탐색">
+            <button
+              type="button"
+              class="page-nav__btn"
+              aria-label="이전 페이지"
+              :disabled="currentPage === 0 || imageToolsBusy"
+              @click="prevPage"
+            >‹</button>
+            <span class="page-nav__indicator" aria-live="polite">
+              {{ currentPage + 1 }} / {{ manualPages.length }}
+            </span>
+            <button
+              type="button"
+              class="page-nav__btn"
+              aria-label="다음 페이지"
+              :disabled="currentPage === manualPages.length - 1 || imageToolsBusy"
+              @click="nextPage"
+            >›</button>
+          </div>
+
+          <!-- 현재 페이지 이미지 -->
+          <div v-if="manualPages[currentPage]" class="viewer viewer--image">
+            <img
+              :src="objectUrls.get(manualPages[currentPage]!.id)"
+              alt="설명서 이미지"
+              class="viewer__img"
+            />
+            <div class="viewer__controls">
+              <button
+                type="button"
+                class="viewer__ctrl-btn"
+                :disabled="imageToolsBusy"
+                aria-label="이미지 자르기"  
+                @click="openCrop(manualPages[currentPage]!, $event.currentTarget as HTMLButtonElement)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <polyline points="6 2 6 16 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="2 6 16 6 16 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="viewer__ctrl-btn"
+                :class="{ 'viewer__ctrl-btn--spinning': rotating === manualPages[currentPage]!.id }"
+                :disabled="imageToolsBusy"
+                aria-label="이미지 시계 방향으로 90° 회전"
+                @click="rotateImage(manualPages[currentPage]!)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 페이지 추가 버튼 -->
+          <label class="append-pages-label" :class="{ 'append-pages-label--loading': appendingPages }">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              class="sr-only"
+              :disabled="appendingPages"
+              @change="appendPages"
+            />
+            <span>{{ appendingPages ? '추가 중…' : '+ 페이지 추가' }}</span>
+          </label>
+
+        </template>
+
+        <!-- ── 기본 첨부 파일 목록 (영수증·보증서, 단일 설명서 등) ── -->
         <ul v-else class="attachment-list">
           <li
-            v-for="att in attachments"
+            v-for="att in orderedAttachments"
             :key="att.id"
             class="attachment-item"
           >
@@ -258,7 +337,7 @@ function goBack(): void {
 
 // ── composables ───────────────────────────────────────────────────────────────
 
-const { getItem, deleteItem } = useItems()
+const { getItem, deleteItem, updateItem } = useItems()
 const { attachments, loadAttachmentsByItemId, clearAttachments, deleteAttachment, saveAttachment } = useAttachments()
 const { deleteExtract } = useReceiptExtracts()
 
@@ -303,6 +382,75 @@ const cropAreaRef = useTemplateRef<HTMLDivElement>('cropArea')
 const imageToolsBusy = computed(() =>
   rotating.value !== null || cropSession.value !== null || applying.value,
 )
+
+// ── 설명서 페이지 뷰어 ────────────────────────────────────────────────────────
+
+// 현재 표시 중인 페이지 인덱스 (설명서 세트 전용)
+const currentPage = ref(0)
+
+// attachmentIds 순서대로 정렬한 첨부 파일 목록
+const orderedAttachments = computed(() => {
+  if (!item.value) return attachments.value
+  const order = item.value.attachmentIds
+  return [...attachments.value].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
+})
+
+// 설명서·보증서 이미지 페이지 목록 (kind=image, attachmentIds 순서)
+const manualPages = computed(() =>
+  orderedAttachments.value.filter(a => a.kind === 'image' && (a.type === 'manual' || a.type === 'warranty')),
+)
+
+// 페이지 뷰어 모드: manual 또는 warranty 아이템이고 이미지 페이지가 2개 이상일 때
+const isManualPageSet = computed(() =>
+  (item.value?.type === 'manual' || item.value?.type === 'warranty') && manualPages.value.length > 1,
+)
+
+function prevPage(): void {
+  if (currentPage.value > 0) currentPage.value--
+}
+
+function nextPage(): void {
+  if (currentPage.value < manualPages.value.length - 1) currentPage.value++
+}
+
+// 설명서 페이지 추가: 이미지 파일을 선택해 기존 세트에 덧붙임
+const appendingPages = ref(false)
+
+async function appendPages(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (!files.length || !item.value) return
+
+  appendingPages.value = true
+  try {
+    const newIds: string[] = []
+    for (const file of files) {
+      const id = crypto.randomUUID()
+      const att: Attachment = {
+        id,
+        itemId: item.value.id,
+        kind: 'image',
+        type: item.value.type as AttachmentDocType,
+        mime: file.type,
+        blob: file,
+        createdAt: new Date().toISOString(),
+      }
+      await saveAttachment(att)
+      newIds.push(id)
+      const url = URL.createObjectURL(file)
+      objectUrls.value.set(id, url)
+      createdUrls.set(id, url)
+    }
+    const updatedIds = [...item.value.attachmentIds, ...newIds]
+    await updateItem(item.value.id, { attachmentIds: updatedIds })
+    item.value = { ...item.value, attachmentIds: updatedIds }
+    // 새로 추가된 첫 페이지로 이동
+    currentPage.value = manualPages.value.length - newIds.length
+  } finally {
+    appendingPages.value = false
+  }
+}
 
 // ── 로드 / 클리어 ─────────────────────────────────────────────────────────────
 
@@ -863,6 +1011,95 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   &--receipt  { color: #1971C2; background: #E7F5FF; }
   &--manual   { color: #5C940D; background: #F4FCE3; }
   &--warranty { color: #862E9C; background: #F8F0FC; }
+}
+
+// ── 설명서 페이지 네비게이터 ──────────────────────────────────────────────────
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+
+    &:hover:not(:disabled) {
+      border-color: #7950F2;
+      color: #7950F2;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #7950F2;
+      outline-offset: 2px;
+    }
+  }
+
+  &__indicator {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text);
+    min-width: 64px;
+    text-align: center;
+  }
+}
+
+.append-pages-label {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px dashed #C9BFFF;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #7950F2;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover:not(.append-pages-label--loading) {
+    background: #F3F0FF;
+    border-color: #7950F2;
+  }
+
+  &--loading {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-within {
+    outline: 2px solid #7950F2;
+    outline-offset: 2px;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 // ── 뷰어 ─────────────────────────────────────────────────────────────────────
