@@ -180,7 +180,7 @@ const route = useRoute()
     // Elevated center add button
     &--add {
       position: relative;
-      transform: translateY(-10px); // lift above tab bar (transform이 margin보다 iOS flex에서 안정적)
+      margin-top: -20px; // lift above tab bar
       flex-direction: row; // override — no label, just the circle
       gap: 0;
     }
@@ -211,7 +211,7 @@ const route = useRoute()
     font-size: 1.875rem;
     font-weight: 300;
     line-height: 1;
-    padding-bottom: 2px; // optical center for +
+    padding-bottom: 4px; // optical center for +
 
     box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.40);
     transition: transform var(--transition-fast), box-shadow var(--transition-fast);
