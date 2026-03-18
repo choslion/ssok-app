@@ -134,7 +134,7 @@ function normalise(text: string): string {
 // ── Merchant extraction ────────────────────────────────────────────────────
 
 // Lines to skip when falling back to heuristic candidate selection
-const MERCHANT_SKIP = /^(영\s*수\s*증|매출\s*전표|신용\s*카드|체크\s*카드|고\s*객\s*용|가\s*맹\s*점|감사합니다|이용해\s*주|주셔서|전표\s*번호|승인\s*번호|카드\s*번호|주문\s*번호|사업자|대표자|주\s*소|연\s*락처|테이블|TABLE|담당|직원|서버|주문|TEL|FAX|www\.|http|합\s*계|결제|승인|청구|\d+\s*번(?:\s*테이블)?|No\.\s*\d|NO\.\s*\d)/i
+const MERCHANT_SKIP = /^(영\s*수\s*증|매출\s*전표|신용\s*카드|체크\s*카드|고\s*객\s*용|가\s*맹\s*점|감사합니다|이용해\s*주|주셔서|전표\s*번호|승인\s*번호|카드\s*번호|주문\s*번호|사업자|대표자|주\s*소|연\s*락처|테이블|TABLE|담당|직원|서버|주문|TEL|FAX|www\.|http|합\s*계|결제|승인|청구|계산\s*일자|인쇄\s*일자|발행\s*일자|계산\s*담당|시\s*간|\d+\s*번(?:\s*테이블)?|No\.\s*\d|NO\.\s*\d)/i
 
 // All Korean label synonyms for the merchant/store name field
 const MERCHANT_LABEL_RE = /(?:가\s*맹\s*점\s*명?|상\s*호\s*명?|가\s*게\s*이\s*름|가\s*게\s*명|매\s*장\s*명|업\s*소\s*명|업\s*체\s*명|상\s*점\s*명|점\s*명|사업\s*장\s*명)/i
@@ -148,6 +148,7 @@ function cleanMerchantValue(raw: string): string {
     .replace(/\s*[\d\-()]{9,}.*$/, '')                                   // trailing phone/serial
     .replace(/\s*\d{3}-\d{2}-\d{5}.*$/, '')                              // business reg number
     .replace(/\s*(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)\s*[가-힣].*$/, '') // address
+    .replace(/:\s*$/, '')                                                 // trailing colon → pure label
     .trim()
 }
 
@@ -157,8 +158,27 @@ function extractMerchant(
 ): ReceiptCandidate | undefined {
   const text = normalise(raw)
 
-  // ── 1순위: label + value on the same line ─────────────────────────────
-  // Works regardless of whether structured line data is available.
+  // ── 0순위: Tesseract 구조화 라인별 인라인 매칭 ────────────────────────
+  // 전체 텍스트 매칭보다 우선 시도: 각 라인 객체는 이미 줄 단위로 분리돼 있어
+  // 다음 줄(사업자번호, TEL 등)이 캡처값에 섞이는 문제를 방지함.
+  // 상단 50% 이내 라인만 탐색.
+  if (lines.length > 0) {
+    const maxY = lines.reduce((m, l) => Math.max(m, l.bbox.y1), 0)
+    const topLines = lines
+      .filter(l => l.bbox.y0 < maxY * 0.50)
+      .sort((a, b) => a.bbox.y0 - b.bbox.y0)
+    for (const line of topLines) {
+      const lt = normalise(line.text.trim())
+      const m = lt.match(new RegExp(MERCHANT_LABEL_RE.source + String.raw`\s*:?\s*(.{2,40})`))
+      if (m) {
+        const val = cleanMerchantValue(m[1]!)
+        if (val.length >= 2) return { value: val.slice(0, 40), confidence: 0.93 }
+      }
+    }
+  }
+
+  // ── 1순위: label + value on the same line (전체 텍스트 폴백) ───────────
+  // Tesseract 구조화 데이터가 없을 때 전체 raw text에서 시도.
   // Example: "가맹점명 : 홍길동식당", "상호 OO마트"
   const inlineMatch = text.match(
     new RegExp(MERCHANT_LABEL_RE.source + String.raw`\s*:?\s*([^\n\r]{2,40})`),
@@ -171,7 +191,7 @@ function extractMerchant(
 
   // ── Build a clean, position-ordered line list ─────────────────────────
   // Prefer Tesseract's structured data (has bbox + per-line confidence).
-  // Restrict search to the TOP 45% of the receipt — merchant is always
+  // Restrict search to the TOP 50% of the receipt — merchant is always
   // in the header; searching beyond that causes false positives (e.g. item
   // names, table numbers in the body).
 
@@ -179,7 +199,7 @@ function extractMerchant(
 
   if (lines.length > 0) {
     const maxY = lines.reduce((m, l) => Math.max(m, l.bbox.y1), 0)
-    const cutoffY = maxY * 0.45
+    const cutoffY = maxY * 0.50
 
     candidateLines = lines
       .filter(l => l.bbox.y0 < cutoffY)
@@ -228,7 +248,8 @@ function extractMerchant(
     !MERCHANT_SKIP.test(l.text) &&
     !/^\d/.test(l.text) &&                  // starts with digit → number/code
     !/^\d+\s*번/.test(l.text) &&            // table/order number
-    !/^[A-Z0-9\-_]{4,}$/.test(l.text),     // all-caps serial/code
+    !/^[A-Z0-9\-_]{4,}$/.test(l.text) &&   // all-caps serial/code
+    !/:\s*$/.test(l.text),                  // ends with ":" → pure label line (계산일자: 등)
   )
 
   const koFallback = strictCandidates.find(l => /[가-힣]{3,}/.test(l.text))
@@ -300,8 +321,12 @@ function extractAmount(raw: string): ReceiptCandidate | undefined {
   const text = normalise(raw)
 
   // 1순위: 합계/결제/승인 관련 키워드 + 금액
+  // 지원 형식:
+  //   일반형:   합계: 30,000 / 결제금액: 30,000
+  //   괄호형:   매출합계(카드) 30,000   ← 카드 단말기 영수증
+  //   대괄호형: [결제금액] 30,000       ← 카드 단말기 영수증
   const highMatch = text.match(
-    /(?:합\s*계|총\s*액|결제\s*금액?|승인\s*금액?|청구\s*금액?|최종\s*금액?|합계\s*금액?|총\s*결제|받\s*을\s*돈)\s*[:\s]\s*[₩￦]?\s*([\d,]{1,10})/i,
+    /\[?(?:매출\s*)?(?:합\s*계|총\s*액|결제\s*금액?|승인\s*금액?|청구\s*금액?|최종\s*금액?|합계\s*금액?|총\s*결제|받\s*을\s*돈)(?:\]|\s*\([^)]*\))?\s*[:\s]?\s*[₩￦]?\s*([\d,]{1,10})/i,
   )
   if (highMatch) {
     const digits = highMatch[1]!.replace(/,/g, '')
@@ -326,6 +351,28 @@ function extractAmount(raw: string): ReceiptCandidate | undefined {
   if (wonCandidates.length) {
     const largest = wonCandidates.reduce((a, b) => (a.n >= b.n ? a : b))
     return { value: largest.n.toLocaleString('ko-KR') + '원', confidence: 0.58 }
+  }
+
+  // 4순위: "원" 표기 없는 숫자 — 카드 단말기 영수증처럼 한국어 키워드가 OCR에서 깨질 때 대응.
+  // 합계 금액은 영수증 본체 + 카드 전표 양쪽에 인쇄되므로 같은 값이 2회 이상 등장하는
+  // 경우 합계일 가능성이 높음. 카드번호·사업자번호 등 코드는 보통 1회만 등장.
+  const numFreq = new Map<number, number>()
+  for (const m of text.matchAll(/\b([\d,]{4,9})\b/g)) {
+    const digits = m[1]!.replace(/,/g, '')
+    const n = parseAmount(m[1]!)
+    if (!isNaN(n) && n >= 1000 && !isLikelyNotAmount(digits))
+      numFreq.set(n, (numFreq.get(n) ?? 0) + 1)
+  }
+  // 2회 이상 → 합계 후보 중 최댓값
+  const repeated = [...numFreq.entries()].filter(([, c]) => c >= 2)
+  if (repeated.length) {
+    const best = repeated.reduce((a, b) => (a[0] >= b[0] ? a : b))
+    return { value: best[0].toLocaleString('ko-KR') + '원', confidence: 0.42 }
+  }
+  // 1회 등장 최댓값 (마지막 수단)
+  if (numFreq.size > 0) {
+    const best = [...numFreq.entries()].reduce((a, b) => (a[0] >= b[0] ? a : b))
+    return { value: best[0].toLocaleString('ko-KR') + '원', confidence: 0.28 }
   }
 
   return undefined
@@ -371,7 +418,12 @@ export const useOcr = () => {
 
     try {
       // PSM 4 = SINGLE_COLUMN — see JSDoc above for rationale
-      await worker.setParameters({ tessedit_pageseg_mode: '4' })
+      // OEM 1 = LSTM only — performs better on Korean than the default OEM 3 (LSTM+Legacy hybrid)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await worker.setParameters({
+        tessedit_pageseg_mode: '4',
+        tessedit_ocr_engine_mode: '1',
+      } as any)
 
       onProgress({ status: '텍스트 인식 중…', percent: 60 })
 
@@ -381,14 +433,21 @@ export const useOcr = () => {
 
       // Use Tesseract's structured line data (bbox + confidence) for merchant
       // extraction; fall back to raw text for date/amount (simpler patterns).
-      const lines = (data.lines ?? []) as TesseractLine[]
+      // data.lines may be empty in some Tesseract.js versions — flatten from blocks.
+      const d = data as any
+      const lines = (
+        (d.lines?.length ? d.lines : undefined) ??
+        d.blocks?.flatMap((b: any) =>
+          b.paragraphs?.flatMap((p: any) => p.lines ?? []) ?? []
+        ) ??
+        []
+      ) as TesseractLine[]
 
-      return {
-        rawText: data.text,
-        merchant: extractMerchant(data.text, lines),
-        date: extractDate(data.text),
-        amount: extractAmount(data.text),
-      }
+      const merchant = extractMerchant(data.text, lines)
+      const date = extractDate(data.text)
+      const amount = extractAmount(data.text)
+
+      return { rawText: data.text, merchant, date, amount }
     } finally {
       await worker.terminate()
     }

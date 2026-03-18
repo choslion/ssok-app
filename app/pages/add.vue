@@ -87,6 +87,12 @@
             <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
               <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
 
+              <p
+                v-if="isLowConfidenceResult(pf.ocrResult)"
+                class="ocr-panel__warning"
+                role="note"
+              >인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
+
               <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
                 <div class="ocr-candidate__body">
                   <span class="ocr-candidate__label">상호</span>
@@ -312,6 +318,7 @@
 <script setup lang="ts">
 useHead({ title: '추가 · SSOK' })
 import type { Item, Attachment, ItemDocType, AttachmentDocType } from '~~/shared/types/ssok'
+import type { OcrResult } from '~/composables/useOcr.client'
 import { todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
 import type { PendingFile } from '~/composables/usePendingFiles.client'
 
@@ -456,6 +463,15 @@ function applyAmount(pf: PendingFile): void {
 
 function confidencePct(c: number): string {
   return Math.round(c * 100) + '%'
+}
+
+// 모든 추출 필드의 신뢰도가 낮으면 true — 사용자에게 직접 확인 권고
+function isLowConfidenceResult(result: OcrResult | undefined): boolean {
+  if (!result) return false
+  const fields = [result.merchant, result.date, result.amount].filter(Boolean)
+  if (fields.length === 0) return false
+  const maxConf = Math.max(...fields.map(f => f!.confidence))
+  return maxConf < 0.65
 }
 
 // ── validation ────────────────────────────────────────────────────────────────
@@ -960,6 +976,16 @@ async function submit(): Promise<void> {
   &__empty {
     color: var(--color-sub);
     font-size: 0.8125rem;
+  }
+
+  &__warning {
+    font-size: 0.8125rem;
+    color: #92400E;
+    background: #FFFBEB;
+    border: 1px solid #FCD34D;
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-3);
   }
 }
 
