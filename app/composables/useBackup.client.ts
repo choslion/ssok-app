@@ -152,24 +152,13 @@ async function exportBackup(): Promise<void> {
     exportStep.value = '다운로드 준비 중…'
     const filename = `SSOK_Backup_${formatFilenameDate(now)}.zip`
 
-    // iOS Safari는 a.download를 지원하지 않으므로 Web Share API로 파일 공유 시트를 표시.
-    // 사용자가 "파일에 저장"을 선택하면 Files 앱에 저장됩니다.
-    const shareFile = new File([zipBlob], filename, { type: 'application/zip' })
-    if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [shareFile] })) {
-      try {
-        await navigator.share({ files: [shareFile], title: 'SSOK 백업 파일' })
-      } catch (shareErr: unknown) {
-        // 사용자가 시트를 닫은 경우(AbortError)는 오류로 처리하지 않음
-        if (!(shareErr instanceof DOMException && shareErr.name === 'AbortError')) throw shareErr
-      }
-    } else {
-      // 데스크톱/Android 등 a.download 지원 환경
-      const url = URL.createObjectURL(zipBlob)
-      const a = document.createElement('a')
-      a.href = url; a.download = filename
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }
+    // a.download 사용 — iOS 13+ Safari도 ZIP을 Files 앱 다운로드 폴더에 저장함.
+    // Web Share API는 긴 async 작업 후 호출 시 NotAllowedError가 발생하므로 사용하지 않음.
+    const url = URL.createObjectURL(zipBlob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
 
     exportProgress.value = 100
     exportStep.value = '완료!'
@@ -180,7 +169,7 @@ async function exportBackup(): Promise<void> {
     await new Promise<void>(r => setTimeout(r, 1500))
   } catch (err) {
     console.error('[backup] 내보내기 오류:', err)
-    exportError.value = '백업 파일 생성 중 오류가 발생했습니다. 다시 시도해 주세요.'
+    exportError.value = err instanceof Error ? err.message : '백업 파일 생성 중 오류가 발생했습니다. 다시 시도해 주세요.'
   } finally {
     isExporting.value = false
     exportProgress.value = 0
