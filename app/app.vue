@@ -180,7 +180,7 @@ const route = useRoute()
     // Elevated center add button
     &--add {
       position: relative;
-      margin-top: -20px; // lift above tab bar
+      transform: translateY(-10px); // lift above tab bar (transform이 margin보다 iOS flex에서 안정적)
       flex-direction: row; // override — no label, just the circle
       gap: 0;
     }

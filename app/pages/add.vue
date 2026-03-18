@@ -817,6 +817,9 @@ async function submit(): Promise<void> {
     transition: border-color var(--transition-fast);
     appearance: none;
 
+    // iOS Safari는 date input에 text-align: center를 기본 적용하므로 명시적으로 left 지정
+    &[type="date"] { text-align: left; }
+
     // 숫자 스피너 제거
     &[type="number"] {
       -moz-appearance: textfield;
