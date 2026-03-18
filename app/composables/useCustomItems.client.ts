@@ -36,8 +36,9 @@ export function createCustomItemsComposable(config: CustomItemsConfig) {
 
   async function saveToDb(): Promise<void> {
     const db = await useDb()
-    await db.put('settings', { key: config.idbKey,         value: customItems.value })
-    await db.put('settings', { key: config.idbRenamedKey,  value: renamedDefaults.value })
+    // Vue reactive Proxy는 IndexedDB structured clone이 불가하므로 toRaw()로 벗김
+    await db.put('settings', { key: config.idbKey,        value: toRaw(customItems.value) })
+    await db.put('settings', { key: config.idbRenamedKey, value: toRaw(renamedDefaults.value) })
   }
 
   // ── 초기화 (IDB 로드 + localStorage 일회성 마이그레이션) ──────────────────
