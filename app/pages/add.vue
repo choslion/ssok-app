@@ -55,7 +55,7 @@
           <!-- 세션 액션 버튼 -->
           <div class="capture-session__actions">
             <label class="capture-session__add-btn">
-              <input type="file" accept="image/*" class="sr-only" @change="onCaptureFilesSelected" />
+              <input ref="captureInputRef" type="file" accept="image/*" capture="environment" class="sr-only" @change="onCaptureFilesSelected" />
               다음 장 추가
             </label>
             <button
@@ -487,6 +487,7 @@ const warrantyPageCount = computed(() =>
 
 const captureMode = ref(false)
 const captureDocType = ref<'manual' | 'warranty'>('manual')
+const captureInputRef = useTemplateRef<HTMLInputElement>('captureInputRef')
 // pendingFiles 길이: 세션 시작 시점 스냅샷 (세션 파일과 기존 파일 구분)
 const captureStartIdx = ref(0)
 // 세션에서 추가한 파일의 썸네일 URL (id → objectURL)
@@ -495,10 +496,12 @@ const thumbnailUrls = ref(new Map<string, string>())
 // 세션에서 추가된 파일 목록
 const capturePages = computed(() => pendingFiles.value.slice(captureStartIdx.value))
 
-function startCapture(docType: 'manual' | 'warranty'): void {
+async function startCapture(docType: 'manual' | 'warranty'): Promise<void> {
   captureDocType.value = docType
   captureStartIdx.value = pendingFiles.value.length
   captureMode.value = true
+  await nextTick()
+  captureInputRef.value?.click()
 }
 
 function endCapture(): void {

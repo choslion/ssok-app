@@ -51,8 +51,7 @@
         <p v-if="exportError" class="op-message op-message--error" role="alert">{{ exportError }}</p>
 
         <p id="export-desc" class="settings-card__hint">
-          영수증 이미지를 포함한 모든 데이터를 하나의 파일로 내보냅니다.<br>
-          <span class="settings-card__hint-ios">iPhone에서는 공유 시트가 열리면 <strong>파일에 저장</strong>을 선택하세요.</span>
+          영수증 이미지를 포함한 모든 데이터를 하나의 파일로 내보냅니다.
         </p>
 
         <!-- ── 가져오기 ────────────────────────────────────────────────────── -->
@@ -364,7 +363,6 @@ function onFileSelected(e: Event): void {
     line-height: 1.5;
 
     &--warning { color: var(--color-error-dark); }
-    &-ios { color: var(--color-sub); }
   }
 
   &__actions {
@@ -381,6 +379,7 @@ function onFileSelected(e: Event): void {
   margin-top: 1px;
   color: var(--color-error-dark);
 }
+
 
 // ── 마지막 백업 상태 ──────────────────────────────────────────────────────────
 
