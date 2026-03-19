@@ -5,19 +5,23 @@
     <PageHeader title="새 항목 추가" back="/" />
 
     <!-- 항목 종류 선택: 파일이 없을 때만 표시 -->
-    <div v-if="pendingFiles.length === 0" ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
-      <button
-        v-for="t in TYPE_OPTIONS"
-        :key="t.value"
-        type="button"
-        class="type-chip"
-        :class="['type-chip--' + t.value, { 'type-chip--active': form.type === t.value }]"
-        :aria-pressed="form.type === t.value"
-        @click="selectType(t.value)"
-      >{{ t.label }}</button>
+    <div v-if="pendingFiles.length === 0" class="form-section">
+      <h2 class="form-section__heading">서류 종류</h2>
+      <div ref="typeSelectorRef" class="type-selector" role="group" aria-label="항목 종류 선택 (필수)">
+        <button
+          v-for="t in TYPE_OPTIONS"
+          :key="t.value"
+          type="button"
+          class="type-chip"
+          :class="['type-chip--' + t.value, { 'type-chip--active': form.type === t.value }]"
+          :aria-pressed="form.type === t.value"
+          @click="selectType(t.value)"
+        >{{ t.label }}</button>
+      </div>
+      <p class="type-selector__hint">선택한 종류를 기준으로 관련 서류를 함께 보관할 수 있어요.</p>
     </div>
 
-    <form novalidate @submit.prevent="submit">
+    <form id="add-form" novalidate @submit.prevent="submit">
 
       <!-- ── 파일 첨부 ──────────────────────────────────────── -->
       <section class="form-section">
@@ -76,7 +80,29 @@
         <!-- ── 일반 파일 업로드 경로 ─────────────────────────── -->
         <template v-else>
 
-          <label class="file-picker">
+          <!-- 숨겨진 영수증 단건 촬영 인풋 -->
+          <input
+            ref="receiptCaptureInputRef"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="sr-only"
+            aria-hidden="true"
+            @change="onReceiptCaptureSelected"
+          />
+
+          <!-- 주요 CTA: 선택된 서류 종류 기준 -->
+          <button
+            type="button"
+            class="primary-capture-btn"
+            :class="'primary-capture-btn--' + form.type"
+            @click="startPrimaryCapture"
+          >
+            {{ TYPE_LABELS[form.type] }} 촬영 시작
+          </button>
+
+          <!-- 파일 선택 (보조) -->
+          <label class="file-picker file-picker--secondary">
             <input
               type="file"
               multiple
@@ -88,13 +114,16 @@
             <span class="file-picker__label">＋ 파일 선택 (사진 / PDF)</span>
           </label>
 
-          <div class="capture-start-row">
-            <button type="button" class="manual-capture-btn manual-capture-btn--warranty" @click="startCapture('warranty')">
-              보증서 촬영 시작
-            </button>
-            <button type="button" class="manual-capture-btn" @click="startCapture('manual')">
-              설명서 촬영 시작
-            </button>
+          <!-- 나머지 두 서류 종류 보조 추가 버튼 -->
+          <div class="secondary-add-row">
+            <button
+              v-for="t in secondaryTypes"
+              :key="t.value"
+              type="button"
+              class="secondary-add-btn"
+              :class="'secondary-add-btn--' + t.value"
+              @click="addSecondaryType(t.value)"
+            >＋ {{ t.label }} 추가</button>
           </div>
 
           <p v-if="manualPageCount > 1" class="manual-set-hint">
@@ -105,7 +134,7 @@
           </p>
 
           <ul v-if="pendingFiles.length" class="file-list">
-            <li v-for="(pf, idx) in pendingFiles" :key="pf.id" class="file-item">
+            <li v-for="pf in [...pendingFiles].reverse()" :key="pf.id" class="file-item">
 
               <!-- 파일명 + 삭제 버튼 -->
               <div class="file-item__header">
@@ -113,7 +142,7 @@
                   <span class="file-item__name">{{ pf.file.name }}</span>
                   <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
                 </div>
-                <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(idx)">✕</button>
+                <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(pendingFiles.indexOf(pf))">✕</button>
               </div>
 
               <!-- 문서 종류 칩 -->
@@ -203,33 +232,6 @@
       <section class="form-section">
         <h2 class="form-section__heading">기본 정보</h2>
 
-        <!-- 제품 -->
-        <div class="field">
-          <label class="field__label">
-            제품 <span class="form-section__optional">(선택)</span>
-          </label>
-          <p class="field__hint">예: TV, 냉장고, 에어프라이어</p>
-          <ChipRow
-            v-model="topicChipComputed"
-            :chips="allTopicChips"
-            group-label="제품 빠른 선택"
-            expand-label="제품 목록 더 보기"
-            collapse-label="제품 목록 접기"
-          />
-          <div class="field__input-wrap topic-custom-input">
-            <input
-              v-model="topicCustom"
-              class="field__input"
-              :class="{ 'field__input--clearable': topicCustom }"
-              type="text"
-              placeholder="직접 입력"
-              maxlength="20"
-              aria-label="제품 직접 입력"
-            />
-            <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''">✕</button>
-          </div>
-        </div>
-
         <!-- 제품명 -->
         <div class="field" :class="{ 'field--error': errors.title }">
           <label class="field__label" for="f-name">제품명 <span class="required" aria-hidden="true">*</span></label>
@@ -253,12 +255,40 @@
           <p v-if="errors.title" id="f-name-error" class="field__error" role="alert">{{ errors.title }}</p>
         </div>
 
+        <!-- 제품 -->
+        <div class="field">
+          <label class="field__label">
+            제품 <span class="form-section__optional">(선택)</span>
+          </label>
+          <p class="field__hint">제품 종류를 선택하면 나중에 한눈에 모아볼 수 있어요.</p>
+          <ChipRow
+            v-model="topicChipComputed"
+            :chips="allTopicChips"
+            group-label="제품 빠른 선택"
+            expand-label="제품 목록 더 보기"
+            collapse-label="제품 목록 접기"
+          />
+          <div class="field__input-wrap topic-custom-input">
+            <input
+              v-model="topicCustom"
+              class="field__input"
+              :class="{ 'field__input--clearable': topicCustom }"
+              type="text"
+              placeholder="직접 입력"
+              maxlength="20"
+              aria-label="제품 직접 입력"
+            />
+            <button v-if="topicCustom" type="button" class="field__clear" aria-label="제품 지우기" @click="topicCustom = ''">✕</button>
+          </div>
+        </div>
+
         <!-- 보관 장소 (설명서일 때 두드러지게 표시) -->
         <div class="field" :class="{ 'field--space-featured': derivedType === 'manual' }">
           <label class="field__label">
             보관 장소
             <span v-if="derivedType !== 'manual'" class="form-section__optional">(선택)</span>
           </label>
+          <p class="field__hint">어디에 두었는지 기록해 두면 나중에 바로 찾을 수 있어요.</p>
           <ChipRow
             v-model="spaceChipComputed"
             :chips="allSpaceChips"
@@ -340,6 +370,7 @@
               type="text"
               inputmode="numeric"
               placeholder="0"
+              maxlength="12"
               aria-label="구매 금액 입력, 숫자만"
               @input="onPriceInput"
             />
@@ -371,17 +402,18 @@
 
       </section>
 
-      <!-- ── 제출 오류 메시지 ─────────────────────────────────── -->
-      <p v-if="errors.submit" class="submit-error" role="alert">{{ errors.submit }}</p>
+    </form>
 
-      <!-- ── 저장 버튼 ──────────────────────────────────────── -->
-      <div class="form-footer">
-        <button type="submit" class="btn-primary" :disabled="submitting">
+    <!-- ── 하단 고정 저장 버튼 ──────────────────────────────── -->
+    <div class="form-footer">
+      <div class="form-footer__inner">
+        <p v-if="errors.submit" class="submit-error" role="alert">{{ errors.submit }}</p>
+        <button type="submit" form="add-form" class="btn-primary" :disabled="submitting">
           {{ submitting ? '저장 중…' : '저장하기' }}
         </button>
       </div>
+    </div>
 
-    </form>
   </div>
 </template>
 
@@ -389,7 +421,7 @@
 useHead({ title: '추가 · SSOK' })
 import type { Item, Attachment, ItemDocType, AttachmentDocType } from '~~/shared/types/ssok'
 import type { OcrResult } from '~/composables/useOcr.client'
-import { todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
+import { TYPE_LABELS, todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
 import type { PendingFile } from '~/composables/usePendingFiles.client'
 
 // ── composables ───────────────────────────────────────────────────────────────
@@ -489,6 +521,7 @@ const warrantyPageCount = computed(() =>
 const captureMode = ref(false)
 const captureDocType = ref<'manual' | 'warranty'>('manual')
 const captureInputRef = useTemplateRef<HTMLInputElement>('captureInputRef')
+const receiptCaptureInputRef = useTemplateRef<HTMLInputElement>('receiptCaptureInputRef')
 // pendingFiles 길이: 세션 시작 시점 스냅샷 (세션 파일과 기존 파일 구분)
 const captureStartIdx = ref(0)
 // 세션에서 추가한 파일의 썸네일 URL (id → objectURL)
@@ -503,6 +536,37 @@ async function startCapture(docType: 'manual' | 'warranty'): Promise<void> {
   captureMode.value = true
   await nextTick()
   captureInputRef.value?.click()
+}
+
+// 선택된 타입 외 나머지 두 타입
+const secondaryTypes = computed(() => TYPE_OPTIONS.filter(t => t.value !== form.type))
+
+// 주요 CTA: 선택된 타입에 맞는 촬영 시작
+async function startPrimaryCapture(): Promise<void> {
+  if (form.type === 'receipt') {
+    await nextTick()
+    receiptCaptureInputRef.value?.click()
+  } else {
+    await startCapture(form.type as 'manual' | 'warranty')
+  }
+}
+
+// 보조 타입 추가 버튼 핸들러
+async function addSecondaryType(type: ItemDocType): Promise<void> {
+  if (type === 'receipt') {
+    await nextTick()
+    receiptCaptureInputRef.value?.click()
+  } else {
+    await startCapture(type as 'manual' | 'warranty')
+  }
+}
+
+// 영수증 단건 촬영 핸들러
+function onReceiptCaptureSelected(e: Event): void {
+  const input = e.target as HTMLInputElement
+  if (!input.files) return
+  addFiles(Array.from(input.files), 'receipt')
+  input.value = ''
 }
 
 function endCapture(): void {
@@ -722,7 +786,25 @@ async function submit(): Promise<void> {
 
 <style scoped lang="scss">
 .add-page {
-  padding-bottom: var(--space-7);
+  // 하단 고정 저장 버튼 높이(~76px)만큼 추가 여백
+  padding-bottom: 76px;
+}
+
+
+.type-selector__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-sub);
+  margin-bottom: var(--space-3);
+}
+
+.type-selector__hint {
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--color-sub);
+  line-height: 1.55;
 }
 
 // ── 종류 선택 칩 ──────────────────────────────────────────────────────────────
@@ -730,7 +812,6 @@ async function submit(): Promise<void> {
 .type-selector {
   display: flex;
   gap: var(--space-2);
-  margin-bottom: var(--space-4);
 }
 
 .type-chip {
@@ -770,11 +851,11 @@ async function submit(): Promise<void> {
   background: var(--color-surface);
   border-radius: var(--radius-md);
   padding: var(--space-5);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
   box-shadow: var(--shadow-card);
 
   &__heading {
-    font-size: 0.9375rem;
+    font-size: 1.125rem;
     font-weight: 700;
     color: var(--color-text);
     margin-bottom: var(--space-4);
@@ -937,6 +1018,37 @@ async function submit(): Promise<void> {
   margin-top: var(--space-2);
 }
 
+// ── 주요 촬영 CTA ─────────────────────────────────────────────────────────────
+
+.primary-capture-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  margin-bottom: var(--space-3);
+
+  &:hover:not(:disabled) { opacity: 0.88; }
+  &:active:not(:disabled) { transform: scale(0.98); }
+
+  &:focus-visible {
+    outline: 3px solid rgba(0, 0, 0, 0.35);
+    outline-offset: 3px;
+  }
+
+  &--receipt  { background: #0369A1; }
+  &--warranty { background: #2F9E44; }
+  &--manual   { background: #7950F2; }
+}
+
 // ── file picker ───────────────────────────────────────────────────────────────
 
 .file-picker {
@@ -967,6 +1079,48 @@ async function submit(): Promise<void> {
     font-size: 0.9375rem;
     color: var(--color-sub);
     pointer-events: none;
+  }
+
+  // 보조 파일 선택 (primary CTA 아래)
+  &--secondary {
+    padding: var(--space-3) var(--space-4);
+    border-width: 1.5px;
+    margin-bottom: var(--space-3);
+
+    .file-picker__label {
+      font-size: 0.875rem;
+    }
+  }
+}
+
+// ── 보조 서류 종류 추가 버튼 ──────────────────────────────────────────────────
+
+.secondary-add-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.secondary-add-btn {
+  flex: 1;
+  padding: var(--space-2) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-sub);
+  cursor: pointer;
+  text-align: center;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+
+  &--receipt:hover  { color: #0369A1; border-color: #0369A1; background: #E0F2FE; }
+  &--warranty:hover { color: #2F9E44; border-color: #2F9E44; background: #EBFBEE; }
+  &--manual:hover   { color: #7950F2; border-color: #C9BFFF; background: #F3F0FF; }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -1504,7 +1658,20 @@ async function submit(): Promise<void> {
 // ── footer / submit button ────────────────────────────────────────────────────
 
 .form-footer {
-  padding-top: var(--space-2);
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  z-index: 150;
+  background: var(--color-surface);
+  box-shadow: 0 -1px 0 var(--color-border), 0 -4px 12px rgba(0, 0, 0, 0.06);
+  padding: var(--space-3) 0;
+
+  &__inner {
+    max-width: var(--max-content-width);
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+  }
 }
 
 .btn-primary {

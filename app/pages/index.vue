@@ -11,6 +11,7 @@
           type="search"
           placeholder="제품명, 구매처 검색"
           aria-label="항목 검색"
+          maxlength="15"
           @input="search = ($event.target as HTMLInputElement).value"
         />
         <button
@@ -242,7 +243,7 @@ function resetFilter(): void {
 
   &__search {
     width: 100%;
-    padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-3) * 2 + 1rem);
+    padding: var(--space-3) calc(var(--space-3) * 2 + 1rem) var(--space-3) calc(var(--space-3) * 2 + 1rem);
     border: 1.5px solid var(--color-border);
     border-radius: var(--radius-full);
     font-size: 0.9375rem;

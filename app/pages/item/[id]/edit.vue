@@ -15,7 +15,7 @@
 
       <PageHeader title="항목 수정" :back="'/item/' + itemId" />
 
-      <form novalidate @submit.prevent="submit">
+      <form id="edit-form" novalidate @submit.prevent="submit">
 
         <!-- ── 기본 정보 ──────────────────────────────────────── -->
         <section class="form-section">
@@ -165,17 +165,18 @@
           </div>
         </section>
 
-        <!-- ── 제출 오류 ───────────────────────────────────────── -->
-        <p v-if="errors.submit" class="submit-error" role="alert">{{ errors.submit }}</p>
+      </form>
 
-        <!-- ── 저장 버튼 ──────────────────────────────────────── -->
-        <div class="form-footer">
-          <button type="submit" class="btn-primary" :disabled="submitting">
+      <!-- ── 하단 고정 저장 버튼 ──────────────────────────────── -->
+      <div class="form-footer">
+        <div class="form-footer__inner">
+          <p v-if="errors.submit" class="submit-error" role="alert">{{ errors.submit }}</p>
+          <button type="submit" form="edit-form" class="btn-primary" :disabled="submitting">
             {{ submitting ? '저장 중…' : '저장하기' }}
           </button>
         </div>
+      </div>
 
-      </form>
     </template>
   </div>
 </template>
@@ -317,7 +318,7 @@ async function submit(): Promise<void> {
 
 <style scoped lang="scss">
 .edit-page {
-  padding-bottom: var(--space-7);
+  padding-bottom: 76px;
 }
 
 // ── 로딩 / 오류 ───────────────────────────────────────────────────────────────
@@ -339,7 +340,7 @@ async function submit(): Promise<void> {
   background: var(--color-surface);
   border-radius: var(--radius-md);
   padding: var(--space-5);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
   box-shadow: var(--shadow-card);
 
   &__heading {
@@ -529,7 +530,20 @@ async function submit(): Promise<void> {
 // ── footer / submit button ────────────────────────────────────────────────────
 
 .form-footer {
-  padding-top: var(--space-2);
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  z-index: 150;
+  background: var(--color-surface);
+  box-shadow: 0 -1px 0 var(--color-border), 0 -4px 12px rgba(0, 0, 0, 0.06);
+  padding: var(--space-3) 0;
+
+  &__inner {
+    max-width: var(--max-content-width);
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+  }
 }
 
 .btn-primary {

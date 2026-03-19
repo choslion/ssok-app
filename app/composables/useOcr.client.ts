@@ -134,7 +134,7 @@ function normalise(text: string): string {
 // ── Merchant extraction ────────────────────────────────────────────────────
 
 // Lines to skip when falling back to heuristic candidate selection
-const MERCHANT_SKIP = /^(영\s*수\s*증|매출\s*전표|신용\s*카드|체크\s*카드|고\s*객\s*용|가\s*맹\s*점|감사합니다|이용해\s*주|주셔서|전표\s*번호|승인\s*번호|카드\s*번호|주문\s*번호|사업자|대표자|주\s*소|연\s*락처|테이블|TABLE|담당|직원|서버|주문|TEL|FAX|www\.|http|합\s*계|결제|승인|청구|계산\s*일자|인쇄\s*일자|발행\s*일자|계산\s*담당|시\s*간|\d+\s*번(?:\s*테이블)?|No\.\s*\d|NO\.\s*\d)/i
+const MERCHANT_SKIP = /^(영\s*수\s*증|영\s*수\s*N[Oo]|매출\s*전표|신용\s*카드|체크\s*카드|고\s*객\s*용|가\s*맹\s*점|감사합니다|이용해\s*주|주셔서|전표\s*번호|승인\s*번호|카드\s*번호|주문\s*번호|사업자|대표자|주\s*소|연\s*락처|테이블|TABLE|담당|직원|서버|주문|TEL|FAX|www\.|http|합\s*계|결제|승인|청구|판\s*매\s*일\s*시|계산\s*일자|인쇄\s*일자|발행\s*일자|계산\s*담당|시\s*간|\d+\s*번(?:\s*테이블)?|No\.\s*\d|NO\.\s*\d)/i
 
 // All Korean label synonyms for the merchant/store name field
 const MERCHANT_LABEL_RE = /(?:가\s*맹\s*점\s*명?|상\s*호\s*명?|가\s*게\s*이\s*름|가\s*게\s*명|매\s*장\s*명|업\s*소\s*명|업\s*체\s*명|상\s*점\s*명|점\s*명|사업\s*장\s*명)/i
@@ -326,7 +326,7 @@ function extractAmount(raw: string): ReceiptCandidate | undefined {
   //   괄호형:   매출합계(카드) 30,000   ← 카드 단말기 영수증
   //   대괄호형: [결제금액] 30,000       ← 카드 단말기 영수증
   const highMatch = text.match(
-    /\[?(?:매출\s*)?(?:합\s*계|총\s*액|결제\s*금액?|승인\s*금액?|청구\s*금액?|최종\s*금액?|합계\s*금액?|총\s*결제|받\s*을\s*돈)(?:\]|\s*\([^)]*\))?\s*[:\s]?\s*[₩￦]?\s*([\d,]{1,10})/i,
+    /\[?(?:매출\s*)?(?:합\s*계|총\s*액|결제\s*[금그]\s*액?|승인\s*금액?|청구\s*금액?|최종\s*금액?|합계\s*금액?|총\s*결제|받\s*을\s*돈)(?:\]|\s*\([^)]*\))?\s*[:\s]?\s*[₩￦]?\s*([\d,]{1,10})/i,
   )
   if (highMatch) {
     const digits = highMatch[1]!.replace(/,/g, '')
@@ -360,7 +360,7 @@ function extractAmount(raw: string): ReceiptCandidate | undefined {
   for (const m of text.matchAll(/\b([\d,]{4,9})\b/g)) {
     const digits = m[1]!.replace(/,/g, '')
     const n = parseAmount(m[1]!)
-    if (!isNaN(n) && n >= 1000 && !isLikelyNotAmount(digits))
+    if (!isNaN(n) && n >= 1000 && !isLikelyNotAmount(digits) && !(n >= 2000 && n <= 2099))
       numFreq.set(n, (numFreq.get(n) ?? 0) + 1)
   }
   // 2회 이상 → 합계 후보 중 최댓값

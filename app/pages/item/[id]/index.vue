@@ -73,68 +73,52 @@
           첨부된 파일이 없습니다.
         </p>
 
-        <!-- ── 설명서 페이지 뷰어 ─────────────────────────────── -->
-        <template v-else-if="isManualPageSet">
+        <!-- ── 첨부 파일 슬라이더 ─────────────────────────────── -->
+        <template v-else>
+          <AttachmentSwiper
+            v-model="currentPage"
+            :slides="swiperSlides"
+            :aria-label="isManualPageSet
+              ? (item.type === 'warranty' ? '보증서 페이지 뷰어' : '설명서 페이지 뷰어')
+              : '첨부 파일 뷰어'"
+          >
+            <template #controls="{ slide, active }">
+              <template v-if="active && slide.kind === 'image'">
+                <button
+                  type="button"
+                  class="viewer__ctrl-btn"
+                  :disabled="imageToolsBusy"
+                  aria-label="이미지 자르기"
+                  @click="openCrop(attachmentById(slide.id)!, $event.currentTarget as HTMLButtonElement)"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <polyline points="6 2 6 16 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="2 6 16 6 16 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="viewer__ctrl-btn"
+                  :class="{ 'viewer__ctrl-btn--spinning': rotating === slide.id }"
+                  :disabled="imageToolsBusy"
+                  aria-label="이미지 시계 방향으로 90° 회전"
+                  @click="rotateImage(attachmentById(slide.id)!)"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </template>
+            </template>
+          </AttachmentSwiper>
 
-          <!-- 페이지 네비게이터 -->
-          <div class="page-nav" role="navigation" aria-label="설명서 페이지 탐색">
-            <button
-              type="button"
-              class="page-nav__btn"
-              aria-label="이전 페이지"
-              :disabled="currentPage === 0 || imageToolsBusy"
-              @click="prevPage"
-            >‹</button>
-            <span class="page-nav__indicator" aria-live="polite">
-              {{ currentPage + 1 }} / {{ manualPages.length }}
-            </span>
-            <button
-              type="button"
-              class="page-nav__btn"
-              aria-label="다음 페이지"
-              :disabled="currentPage === manualPages.length - 1 || imageToolsBusy"
-              @click="nextPage"
-            >›</button>
-          </div>
-
-          <!-- 현재 페이지 이미지 -->
-          <div v-if="manualPages[currentPage]" class="viewer viewer--image">
-            <img
-              :src="objectUrls.get(manualPages[currentPage]!.id)"
-              alt="설명서 이미지"
-              class="viewer__img"
-            />
-            <div class="viewer__controls">
-              <button
-                type="button"
-                class="viewer__ctrl-btn"
-                :disabled="imageToolsBusy"
-                aria-label="이미지 자르기"  
-                @click="openCrop(manualPages[currentPage]!, $event.currentTarget as HTMLButtonElement)"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <polyline points="6 2 6 16 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <polyline points="2 6 16 6 16 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="viewer__ctrl-btn"
-                :class="{ 'viewer__ctrl-btn--spinning': rotating === manualPages[currentPage]!.id }"
-                :disabled="imageToolsBusy"
-                aria-label="이미지 시계 방향으로 90° 회전"
-                @click="rotateImage(manualPages[currentPage]!)"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- 페이지 추가 버튼 -->
-          <label class="append-pages-label" :class="{ 'append-pages-label--loading': appendingPages }">
+          <!-- 페이지 추가 버튼 (설명서·보증서 세트만) -->
+          <label
+            v-if="isManualPageSet"
+            class="append-pages-label"
+            :class="{ 'append-pages-label--loading': appendingPages }"
+          >
             <input
               type="file"
               accept="image/*"
@@ -145,77 +129,7 @@
             />
             <span>{{ appendingPages ? '추가 중…' : '+ 페이지 추가' }}</span>
           </label>
-
         </template>
-
-        <!-- ── 기본 첨부 파일 목록 (영수증·보증서, 단일 설명서 등) ── -->
-        <ul v-else class="attachment-list">
-          <li
-            v-for="att in orderedAttachments"
-            :key="att.id"
-            class="attachment-item"
-          >
-            <!-- 헤더: 종류 배지 + 날짜 -->
-            <div class="attachment-item__header">
-              <span class="kind-badge" :class="'kind-badge--' + att.type">
-                {{ TYPE_LABELS[att.type] }}
-              </span>
-              <span class="attachment-item__date">{{ formatDateTime(att.createdAt) }}</span>
-            </div>
-
-            <!-- 이미지 뷰어 -->
-            <div v-if="att.kind === 'image'" class="viewer viewer--image">
-              <img
-                :src="objectUrls.get(att.id)"
-                :alt="TYPE_LABELS[att.type] + ' 이미지'"
-                class="viewer__img"
-                loading="lazy"
-              />
-              <div class="viewer__controls">
-                <button
-                  type="button"
-                  class="viewer__ctrl-btn"
-                  :disabled="imageToolsBusy"
-                  aria-label="이미지 자르기"
-                  @click="openCrop(att, $event.currentTarget as HTMLButtonElement)"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <polyline points="6 2 6 16 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <polyline points="2 6 16 6 16 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="viewer__ctrl-btn"
-                  :class="{ 'viewer__ctrl-btn--spinning': rotating === att.id }"
-                  :disabled="imageToolsBusy"
-                  aria-label="이미지 시계 방향으로 90° 회전"
-                  @click="rotateImage(att)"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- PDF 뷰어 -->
-            <div v-else-if="att.kind === 'pdf'" class="viewer viewer--pdf">
-              <iframe
-                :src="objectUrls.get(att.id)"
-                class="viewer__pdf"
-                :title="TYPE_LABELS[att.type] + ' PDF'"
-              />
-              <a
-                :href="objectUrls.get(att.id)"
-                target="_blank"
-                rel="noopener"
-                class="viewer__pdf-link"
-              >새 탭에서 열기</a>
-            </div>
-          </li>
-        </ul>
       </section>
 
     </template>
@@ -405,12 +319,19 @@ const isManualPageSet = computed(() =>
   (item.value?.type === 'manual' || item.value?.type === 'warranty') && manualPages.value.length > 1,
 )
 
-function prevPage(): void {
-  if (currentPage.value > 0) currentPage.value--
-}
+// ── Swiper 슬라이드 데이터 ────────────────────────────────────────────────────
 
-function nextPage(): void {
-  if (currentPage.value < manualPages.value.length - 1) currentPage.value++
+const swiperSlides = computed(() =>
+  orderedAttachments.value.map(att => ({
+    id: att.id,
+    url: objectUrls.value.get(att.id) ?? '',
+    kind: att.kind,
+    label: TYPE_LABELS[att.type] + (att.kind === 'image' ? ' 이미지' : ' PDF'),
+  })),
+)
+
+function attachmentById(id: string): Attachment | undefined {
+  return orderedAttachments.value.find(a => a.id === id)
 }
 
 // 설명서 페이지 추가: 이미지 파일을 선택해 기존 세트에 덧붙임
@@ -445,8 +366,8 @@ async function appendPages(e: Event): Promise<void> {
     const updatedIds = [...item.value.attachmentIds, ...newIds]
     await updateItem(item.value.id, { attachmentIds: updatedIds })
     item.value = { ...item.value, attachmentIds: updatedIds }
-    // 새로 추가된 첫 페이지로 이동
-    currentPage.value = manualPages.value.length - newIds.length
+    // 새로 추가된 첫 페이지로 이동 (orderedAttachments 기준 인덱스)
+    currentPage.value = orderedAttachments.value.length - newIds.length
   } finally {
     appendingPages.value = false
   }
@@ -1013,59 +934,15 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   &--warranty { color: #862E9C; background: #F8F0FC; }
 }
 
-// ── 설명서 페이지 네비게이터 ──────────────────────────────────────────────────
+// ── 설명서 페이지 네비게이터 → AttachmentSwiper 컴포넌트로 이전 ───────────────
 
-.page-nav {
+.append-pages-label {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-
-  &__btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border: 1.5px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: 1.25rem;
-    cursor: pointer;
-    transition: border-color var(--transition-fast), color var(--transition-fast);
-
-    &:hover:not(:disabled) {
-      border-color: #7950F2;
-      color: #7950F2;
-    }
-
-    &:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-
-    &:focus-visible {
-      outline: 2px solid #7950F2;
-      outline-offset: 2px;
-    }
-  }
-
-  &__indicator {
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--color-text);
-    min-width: 64px;
-    text-align: center;
-  }
-}
-
-.append-pages-label {
-  display: inline-flex;
-  align-items: center;
+  width: 100%;
   margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3);
   border: 1.5px dashed #C9BFFF;
   border-radius: var(--radius-sm);
   font-size: 0.8125rem;
@@ -1102,58 +979,31 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   border: 0;
 }
 
-// ── 뷰어 ─────────────────────────────────────────────────────────────────────
+// ── 뷰어 컨트롤 버튼 (AttachmentSwiper #controls 슬롯에서 사용) ───────────────
 
 .viewer {
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-
-  &--image {
-    padding-top: var(--space-6);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  &__img {
-    max-width: 100%;
-    max-height: 480px;
-    object-fit: contain;
-    border-radius: var(--radius-sm);
-  }
-
-  &__controls {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-1);
-    width: 100%;
-    padding: 0 var(--space-1);
-  }
-
   &__ctrl-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-sub);
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    // 어떤 이미지 위에서도 아이콘이 잘 보이도록 반투명 다크 배경
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
     cursor: pointer;
-    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+    transition: background var(--transition-fast);
 
     &:hover:not(:disabled) {
-      color: var(--color-primary);
-      background: rgba(255, 107, 0, 0.06);
-      border-color: var(--color-primary);
+      background: rgba(0, 0, 0, 0.65);
     }
 
     &:disabled { opacity: 0.4; cursor: not-allowed; }
 
     &:focus-visible {
-      outline: 2px solid var(--color-primary);
+      outline: 2px solid #fff;
       outline-offset: 2px;
     }
 
@@ -1163,33 +1013,6 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   }
 
   @keyframes rotate-spin { to { transform: rotate(360deg); } }
-
-  &--pdf {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  &__pdf {
-    width: 100%;
-    height: 70vh;
-    min-height: 480px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-
-    @media (max-width: 480px) {
-      height: 65vh;
-      min-height: 400px;
-    }
-  }
-
-  &__pdf-link {
-    font-size: 0.8125rem;
-    color: var(--color-primary);
-    align-self: flex-start;
-
-    &:hover { text-decoration: underline; }
-  }
 }
 
 // ── 크롭 모달 ─────────────────────────────────────────────────────────────────
