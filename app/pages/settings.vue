@@ -84,7 +84,7 @@
         <input
           ref="fileInputRef"
           type="file"
-          accept=".zip,application/zip,application/x-zip-compressed"
+          accept=".zip"
           aria-hidden="true"
           tabindex="-1"
           style="display:none"
