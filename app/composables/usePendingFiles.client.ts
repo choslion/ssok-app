@@ -1,6 +1,19 @@
 import type { AttachmentDocType } from '~~/shared/types/ssok'
 import type { OcrResult, OcrProgress } from '~/composables/useOcr.client'
 
+const DOC_TYPE_PREFIX: Record<AttachmentDocType, string> = {
+  receipt:  '영수증',
+  warranty: '보증서',
+  manual:   '설명서',
+}
+
+function renameForCamera(file: File, docType: AttachmentDocType, seqNum: number): File {
+  const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : ''
+  const num = String(seqNum).padStart(2, '0')
+  const newName = `${DOC_TYPE_PREFIX[docType]}_${num}${ext}`
+  return new File([file], newName, { type: file.type })
+}
+
 export interface PendingFile {
   id: string           // pre-generated; used as Attachment.id and ReceiptExtract.attachmentId
   file: File
@@ -17,11 +30,16 @@ export function usePendingFiles() {
 
   const pendingFiles = ref<PendingFile[]>([])
 
-  function addFiles(files: File[], docType: AttachmentDocType): void {
+  function addFiles(files: File[], docType: AttachmentDocType, fromCamera = false): void {
     for (const file of files) {
+      let finalFile = file
+      if (fromCamera) {
+        const existing = pendingFiles.value.filter(pf => pf.docType === docType).length
+        finalFile = renameForCamera(file, docType, existing + 1)
+      }
       pendingFiles.value.push({
         id: crypto.randomUUID(),
-        file,
+        file: finalFile,
         docType,
         ocrState: 'idle',
         ocrProgress: 0,

@@ -133,97 +133,30 @@
             보증서 {{ warrantyPageCount }}페이지가 하나의 세트로 저장됩니다.
           </p>
 
-          <ul v-if="pendingFiles.length" class="file-list">
-            <li v-for="pf in [...pendingFiles].reverse()" :key="pf.id" class="file-item">
-
-              <!-- 파일명 + 삭제 버튼 -->
-              <div class="file-item__header">
-                <div class="file-item__meta">
-                  <span class="file-item__name">{{ pf.file.name }}</span>
-                  <span class="file-item__size">{{ formatSize(pf.file.size) }}</span>
-                </div>
-                <button type="button" class="file-item__remove" aria-label="파일 제거" @click="removeFile(pendingFiles.indexOf(pf))">✕</button>
+          <!-- 썸네일 그리드 -->
+          <div v-if="pendingFiles.length" class="file-grid" role="list">
+            <button
+              v-for="(pf, i) in pendingFiles"
+              :key="pf.id"
+              type="button"
+              role="listitem"
+              class="file-grid__item"
+              :aria-label="pf.file.name + ' 미리보기'"
+              @click="openPreview(i, $event.currentTarget)"
+            >
+              <img
+                v-if="thumbnailUrls.get(pf.id)"
+                :src="thumbnailUrls.get(pf.id)"
+                :alt="pf.file.name"
+                class="file-grid__thumb"
+              />
+              <div v-else class="file-grid__pdf">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="file-grid__pdf-name">{{ pf.file.name }}</span>
               </div>
-
-              <!-- 문서 종류 칩 -->
-              <div class="file-type-chips" role="group" :aria-label="pf.file.name + ' 문서 종류 선택'">
-                <button
-                  v-for="opt in TYPE_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="file-type-chip"
-                  :class="['file-type-chip--' + opt.value, { 'file-type-chip--active': pf.docType === opt.value }]"
-                  :aria-pressed="pf.docType === opt.value"
-                  @click="pf.docType = (opt.value as AttachmentDocType)"
-                >{{ opt.label }}</button>
-              </div>
-
-              <!-- OCR 추출 버튼: 이미지 영수증 파일이고 실행 중이 아닐 때만 표시 -->
-              <button
-                v-if="pf.file.type.startsWith('image/') && pf.docType === 'receipt' && pf.ocrState !== 'running'"
-                type="button"
-                class="file-item__ocr-btn"
-                :aria-label="(pf.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + pf.file.name"
-                @click="runOcr(pf)"
-              >{{ pf.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
-
-              <!-- OCR 진행 중 -->
-              <div v-if="pf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
-                <div class="ocr-progress-bar">
-                  <div class="ocr-progress-bar__fill" :style="{ width: pf.ocrProgress + '%' }"></div>
-                </div>
-                <p class="ocr-panel__status">{{ pf.ocrStatus || 'OCR 준비 중…' }} {{ pf.ocrProgress }}%</p>
-                <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
-              </div>
-
-              <!-- OCR 오류 -->
-              <p v-if="pf.ocrState === 'error'" class="ocr-error" role="alert">{{ pf.ocrError }}</p>
-
-              <!-- OCR 결과: 후보 제시 -->
-              <div v-if="pf.ocrState === 'done' && pf.ocrResult" class="ocr-panel ocr-panel--result">
-                <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
-
-                <p
-                  v-if="isLowConfidenceResult(pf.ocrResult)"
-                  class="ocr-panel__warning"
-                  role="note"
-                >인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
-
-                <div v-if="pf.ocrResult.merchant" class="ocr-candidate">
-                  <div class="ocr-candidate__body">
-                    <span class="ocr-candidate__label">상호</span>
-                    <span class="ocr-candidate__value">{{ pf.ocrResult.merchant.value }}</span>
-                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.merchant.confidence) }}</span>
-                  </div>
-                  <button type="button" class="ocr-apply-btn" @click="applyMerchant(pf)">구매처에 적용</button>
-                </div>
-
-                <div v-if="pf.ocrResult.date" class="ocr-candidate">
-                  <div class="ocr-candidate__body">
-                    <span class="ocr-candidate__label">날짜</span>
-                    <span class="ocr-candidate__value">{{ pf.ocrResult.date.value }}</span>
-                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.date.confidence) }}</span>
-                  </div>
-                  <button type="button" class="ocr-apply-btn" @click="applyDate(pf)">구매일에 적용</button>
-                </div>
-
-                <div v-if="pf.ocrResult.amount" class="ocr-candidate">
-                  <div class="ocr-candidate__body">
-                    <span class="ocr-candidate__label">금액</span>
-                    <span class="ocr-candidate__value">{{ pf.ocrResult.amount.value }}</span>
-                    <span class="ocr-candidate__conf">{{ confidencePct(pf.ocrResult.amount.confidence) }}</span>
-                  </div>
-                  <button type="button" class="ocr-apply-btn" @click="applyAmount(pf)">금액에 적용</button>
-                </div>
-
-                <p
-                  v-if="!pf.ocrResult.merchant && !pf.ocrResult.date && !pf.ocrResult.amount"
-                  class="ocr-panel__empty"
-                >텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
-              </div>
-
-            </li>
-          </ul>
+              <span class="file-grid__badge" :class="'file-grid__badge--' + pf.docType">{{ TYPE_LABELS[pf.docType] }}</span>
+            </button>
+          </div>
 
         </template>
       </section>
@@ -415,6 +348,136 @@
     </div>
 
   </div>
+
+  <!-- ── 파일 풀스크린 프리뷰 모달 ──────────────────────────── -->
+  <Teleport to="body">
+    <div
+      v-if="previewOpen"
+      ref="fpRef"
+      class="fp"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fp-title"
+      tabindex="-1"
+      @touchstart.passive="onFpTouchStart"
+      @touchmove="onFpTouchMove"
+      @touchend.passive="onFpTouchEnd"
+    >
+      <h2 id="fp-title" class="sr-only">파일 미리보기</h2>
+
+      <!-- 헤더 -->
+      <div class="fp__header">
+        <div class="fp__header-info">
+          <span class="fp__title-text">파일 미리보기</span>
+          <span class="fp__counter" aria-live="polite" aria-atomic="true">{{ previewIdx + 1 }} / {{ pendingFiles.length }}</span>
+        </div>
+        <button type="button" class="fp__close" aria-label="닫기" @click="closePreview">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- 이미지 / PDF 뷰 -->
+      <div class="fp__view" @click.self="closePreview">
+        <template v-if="currentPreviewPf">
+          <img
+            v-if="currentPreviewPf.file.type.startsWith('image/')"
+            :src="thumbnailUrls.get(currentPreviewPf.id)"
+            :alt="currentPreviewPf.file.name"
+            class="fp__img"
+            :style="{ transform: `scale(${fpScale})` }"
+            draggable="false"
+          />
+          <div v-else class="fp__pdf-placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="fp__pdf-name">{{ currentPreviewPf.file.name }}</span>
+            <span class="fp__pdf-size">{{ formatSize(currentPreviewPf.file.size) }}</span>
+          </div>
+        </template>
+      </div>
+
+      <!-- 이전 / 다음 화살표 -->
+      <button v-if="previewIdx > 0" type="button" class="fp__nav fp__nav--prev" aria-label="이전 파일" @click="previewIdx--">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button v-if="previewIdx < pendingFiles.length - 1" type="button" class="fp__nav fp__nav--next" aria-label="다음 파일" @click="previewIdx++">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <!-- 하단 시트 -->
+      <div class="fp__bottom">
+
+        <!-- 문서 종류 칩 -->
+        <div v-if="currentPreviewPf" class="fp__chips" role="group" :aria-label="'문서 종류 선택 — ' + currentPreviewPf.file.name">
+          <button
+            v-for="opt in TYPE_OPTIONS"
+            :key="opt.value"
+            type="button"
+            class="fp__chip"
+            :class="['fp__chip--' + opt.value, { 'fp__chip--active': currentPreviewPf.docType === opt.value }]"
+            :aria-pressed="currentPreviewPf.docType === opt.value"
+            @click="currentPreviewPf.docType = (opt.value as AttachmentDocType)"
+          >{{ opt.label }}</button>
+        </div>
+
+        <!-- OCR 버튼 -->
+        <button
+          v-if="currentPreviewPf?.file.type.startsWith('image/') && currentPreviewPf?.docType === 'receipt' && currentPreviewPf?.ocrState !== 'running'"
+          type="button"
+          class="fp__ocr-btn"
+          :aria-label="(currentPreviewPf?.ocrState === 'error' ? '영수증 정보 다시 읽어오기' : '영수증 정보 읽어오기') + ' — ' + currentPreviewPf?.file.name"
+          @click="currentPreviewPf && runOcr(currentPreviewPf)"
+        >{{ currentPreviewPf?.ocrState === 'error' ? '다시 읽어오기' : '영수증 정보 읽어오기' }}</button>
+
+        <!-- OCR 진행 중 -->
+        <div v-if="currentPreviewPf?.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
+          <div class="ocr-progress-bar">
+            <div class="ocr-progress-bar__fill" :style="{ width: currentPreviewPf.ocrProgress + '%' }"></div>
+          </div>
+          <p class="ocr-panel__status">{{ currentPreviewPf.ocrStatus || 'OCR 준비 중…' }} {{ currentPreviewPf.ocrProgress }}%</p>
+          <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
+        </div>
+
+        <!-- OCR 오류 -->
+        <p v-if="currentPreviewPf?.ocrState === 'error'" class="ocr-error" role="alert">{{ currentPreviewPf.ocrError }}</p>
+
+        <!-- OCR 결과 -->
+        <div v-if="currentPreviewPf?.ocrState === 'done' && currentPreviewPf.ocrResult" class="ocr-panel ocr-panel--result">
+          <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
+          <p v-if="isLowConfidenceResult(currentPreviewPf.ocrResult)" class="ocr-panel__warning" role="note">인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
+
+          <div v-if="currentPreviewPf.ocrResult.merchant" class="ocr-candidate">
+            <div class="ocr-candidate__body">
+              <span class="ocr-candidate__label">상호</span>
+              <span class="ocr-candidate__value">{{ currentPreviewPf.ocrResult.merchant.value }}</span>
+              <span class="ocr-candidate__conf">{{ confidencePct(currentPreviewPf.ocrResult.merchant.confidence) }}</span>
+            </div>
+            <button type="button" class="ocr-apply-btn" @click="applyMerchant(currentPreviewPf)">구매처에 적용</button>
+          </div>
+          <div v-if="currentPreviewPf.ocrResult.date" class="ocr-candidate">
+            <div class="ocr-candidate__body">
+              <span class="ocr-candidate__label">날짜</span>
+              <span class="ocr-candidate__value">{{ currentPreviewPf.ocrResult.date.value }}</span>
+              <span class="ocr-candidate__conf">{{ confidencePct(currentPreviewPf.ocrResult.date.confidence) }}</span>
+            </div>
+            <button type="button" class="ocr-apply-btn" @click="applyDate(currentPreviewPf)">구매일에 적용</button>
+          </div>
+          <div v-if="currentPreviewPf.ocrResult.amount" class="ocr-candidate">
+            <div class="ocr-candidate__body">
+              <span class="ocr-candidate__label">금액</span>
+              <span class="ocr-candidate__value">{{ currentPreviewPf.ocrResult.amount.value }}</span>
+              <span class="ocr-candidate__conf">{{ confidencePct(currentPreviewPf.ocrResult.amount.confidence) }}</span>
+            </div>
+            <button type="button" class="ocr-apply-btn" @click="applyAmount(currentPreviewPf)">금액에 적용</button>
+          </div>
+          <p v-if="!currentPreviewPf.ocrResult.merchant && !currentPreviewPf.ocrResult.date && !currentPreviewPf.ocrResult.amount" class="ocr-panel__empty">텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
+        </div>
+
+        <!-- 삭제 버튼 -->
+        <button type="button" class="fp__delete-btn" @click="removeInPreview">이 파일 삭제</button>
+      </div>
+    </div>
+  </Teleport>
+
 </template>
 
 <script setup lang="ts">
@@ -498,6 +561,137 @@ const { pendingFiles, addFiles, removeFile, runOcr } = usePendingFiles()
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 
+// ── 파일 그리드 프리뷰 ───────────────────────────────────────────────────────
+
+// 모든 pending 파일에 대해 썸네일 URL 자동 생성 (이미지만)
+watch(
+  () => pendingFiles.value.map(pf => pf.id),
+  () => {
+    for (const pf of pendingFiles.value) {
+      if (!thumbnailUrls.value.has(pf.id) && pf.file.type.startsWith('image/')) {
+        thumbnailUrls.value.set(pf.id, URL.createObjectURL(pf.file))
+      }
+    }
+  },
+  { immediate: true },
+)
+
+const previewOpen = ref(false)
+const previewIdx = ref(0)
+const currentPreviewPf = computed(() => pendingFiles.value[previewIdx.value] ?? null)
+const fpRef = useTemplateRef<HTMLElement>('fpRef')
+let _fpTrigger: HTMLElement | null = null
+
+function openPreview(idx: number, trigger?: EventTarget | null): void {
+  _fpTrigger = (trigger as HTMLElement) ?? null
+  previewIdx.value = idx
+  fpScale.value = 1
+  fpPanX.value = 0
+  fpPanY.value = 0
+  previewOpen.value = true
+  nextTick(() => fpRef.value?.focus())
+}
+
+function closePreview(): void {
+  previewOpen.value = false
+  fpScale.value = 1
+  fpPanX.value = 0
+  fpPanY.value = 0
+  _fpTrigger?.focus()
+  _fpTrigger = null
+}
+
+function removeInPreview(): void {
+  const pf = pendingFiles.value[previewIdx.value]
+  if (pf) revokeThumbnail(pf.id)
+  removeFile(previewIdx.value)
+  if (pendingFiles.value.length === 0) { closePreview(); return }
+  previewIdx.value = Math.min(previewIdx.value, pendingFiles.value.length - 1)
+}
+
+function _trapFpFocus(e: KeyboardEvent): void {
+  if (!fpRef.value || e.key !== 'Tab') return
+  const els = Array.from(
+    fpRef.value.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  )
+  const first = els[0]
+  const last = els[els.length - 1]
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last?.focus() }
+  } else {
+    if (document.activeElement === last) { e.preventDefault(); first?.focus() }
+  }
+}
+
+// 핀치 줌 + 스와이프 상태
+const fpScale = ref(1)
+const fpPanX = ref(0)
+const fpPanY = ref(0)
+let _fpInitDist = 0
+let _fpInitScale = 1
+let _fpTouchCount = 0
+let _fpSwipeX = 0
+let _fpSwipeY = 0
+
+function _fpDist(t: TouchList): number {
+  const dx = t[0]!.clientX - t[1]!.clientX
+  const dy = t[0]!.clientY - t[1]!.clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+function onFpTouchStart(e: TouchEvent): void {
+  _fpTouchCount = e.touches.length
+  if (e.touches.length === 2) {
+    _fpInitDist = _fpDist(e.touches)
+    _fpInitScale = fpScale.value
+  } else {
+    _fpSwipeX = e.touches[0]!.clientX
+    _fpSwipeY = e.touches[0]!.clientY
+  }
+}
+
+function onFpTouchMove(e: TouchEvent): void {
+  if (e.touches.length === 2) {
+    e.preventDefault()
+    fpScale.value = Math.min(4, Math.max(1, _fpInitScale * (_fpDist(e.touches) / _fpInitDist)))
+  }
+}
+
+function onFpTouchEnd(e: TouchEvent): void {
+  if (_fpTouchCount === 1 && fpScale.value <= 1 && e.changedTouches[0]) {
+    const dx = e.changedTouches[0].clientX - _fpSwipeX
+    const dy = e.changedTouches[0].clientY - _fpSwipeY
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 48) {
+      if (dx < 0 && previewIdx.value < pendingFiles.value.length - 1) {
+        previewIdx.value++; fpScale.value = 1
+      } else if (dx > 0 && previewIdx.value > 0) {
+        previewIdx.value--; fpScale.value = 1
+      }
+    }
+  }
+  _fpTouchCount = e.touches.length
+}
+
+function _onFpKey(e: KeyboardEvent): void {
+  if (e.key === 'Escape') { closePreview(); return }
+  if (e.key === 'ArrowLeft' && previewIdx.value > 0) { previewIdx.value--; return }
+  if (e.key === 'ArrowRight' && previewIdx.value < pendingFiles.value.length - 1) { previewIdx.value++; return }
+  _trapFpFocus(e)
+}
+
+watch(previewOpen, open => {
+  if (open) {
+    document.addEventListener('keydown', _onFpKey)
+    // 배경 콘텐츠를 스크린리더에서 숨김
+    document.querySelector('#__nuxt')?.setAttribute('aria-hidden', 'true')
+  } else {
+    document.removeEventListener('keydown', _onFpKey)
+    document.querySelector('#__nuxt')?.removeAttribute('aria-hidden')
+  }
+})
+
 // 파일이 있으면 파일별 docType에서 아이템 타입을 도출, 없으면 form.type 사용
 // 우선순위: warranty > receipt > manual
 const derivedType = computed<ItemDocType>(() => {
@@ -565,7 +759,7 @@ async function addSecondaryType(type: ItemDocType): Promise<void> {
 function onReceiptCaptureSelected(e: Event): void {
   const input = e.target as HTMLInputElement
   if (!input.files) return
-  addFiles(Array.from(input.files), 'receipt')
+  addFiles(Array.from(input.files), 'receipt', true)
   input.value = ''
 }
 
@@ -588,7 +782,7 @@ function onCaptureFilesSelected(e: Event): void {
   const input = e.target as HTMLInputElement
   if (!input.files) return
   const files = Array.from(input.files)
-  addFiles(files, captureDocType.value)
+  addFiles(files, captureDocType.value, true)
   // 새로 추가된 파일에 썸네일 URL 생성
   for (const pf of pendingFiles.value.slice(captureStartIdx.value)) {
     if (!thumbnailUrls.value.has(pf.id)) {
@@ -1375,131 +1569,262 @@ async function submit(): Promise<void> {
   }
 }
 
-// ── file list ─────────────────────────────────────────────────────────────────
+// ── 파일 썸네일 그리드 ────────────────────────────────────────────────────────
 
-.file-list {
+.file-grid {
   margin-top: var(--space-3);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
+
+  &__item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--color-border);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+
+    &:hover { opacity: 0.85; }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  }
+
+  &__thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__pdf {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: var(--space-2);
+    background: #F8F9FA;
+  }
+
+  &__pdf-name {
+    font-size: 0.625rem;
+    color: var(--color-sub);
+    text-align: center;
+    word-break: break-all;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  &__badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-align: center;
+    color: #fff;
+
+    &--receipt  { background: rgba(3, 105, 161, 0.85); }
+    &--warranty { background: rgba(47, 158, 68, 0.85); }
+    &--manual   { background: rgba(121, 80, 242, 0.85); }
+  }
 }
 
-.file-item {
+// ── 풀스크린 프리뷰 모달 ──────────────────────────────────────────────────────
+
+.fp {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.72);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  touch-action: none;
 
   &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-  }
-
-  &__meta {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name {
-    display: block;
-    font-size: 0.875rem;
-    color: var(--color-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &__size {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--color-sub);
-    margin-top: 2px;
-  }
-
-  &__remove {
-    width: 28px;
-    height: 28px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    color: var(--color-sub);
-    transition: color var(--transition-fast), background var(--transition-fast);
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    color: #fff;
+  }
 
-    &:hover {
-      color: var(--color-error);
-      background: var(--color-error-bg);
+  &__header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__title-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__counter {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  &__close {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+
+    &:hover { background: rgba(255,255,255,0.12); }
+    &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  }
+
+  &__view {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  &__img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    transition: transform 0.1s ease;
+    transform-origin: center center;
+  }
+
+  &__pdf-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    color: rgba(255,255,255,0.6);
+  }
+
+  &__pdf-name {
+    font-size: 0.875rem;
+    text-align: center;
+    max-width: 200px;
+    word-break: break-all;
+  }
+
+  &__pdf-size {
+    font-size: 0.75rem;
+    opacity: 0.6;
+  }
+
+  &__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(0,0,0,0.4);
+    border-radius: 50%;
+    z-index: 1;
+    transition: background var(--transition-fast);
+
+    &:hover { background: rgba(0,0,0,0.65); }
+    &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    &--prev { left: var(--space-3); }
+    &--next { right: var(--space-3); }
+  }
+
+  &__bottom {
+    flex-shrink: 0;
+    background: var(--color-surface);
+    border-radius: 20px 20px 0 0;
+    padding: var(--space-4) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  &__chips {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  &__chip {
+    flex: 1;
+    padding: var(--space-2) var(--space-1);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-sub);
+    background: var(--color-surface);
+    text-align: center;
+    transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+
+    &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
+    &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
+    &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
+
+    &--active {
+      border-color: var(--chip-color);
+      color: var(--chip-color);
+      background: var(--chip-bg);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--chip-color, var(--color-primary));
+      outline-offset: 2px;
     }
   }
-}
 
-// ── 파일별 문서 종류 칩 ────────────────────────────────────────────────────────
+  &__ocr-btn {
+    align-self: flex-start;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-primary);
+    background: transparent;
+    transition: background var(--transition-fast);
 
-.file-type-chips {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.file-type-chip {
-  flex: 1;
-  padding: var(--space-2) var(--space-1);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--color-sub);
-  background: var(--color-surface);
-  cursor: pointer;
-  text-align: center;
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-
-  &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
-  &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
-  &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
-
-  &--active {
-    border-color: var(--chip-color);
-    color: var(--chip-color);
-    background: var(--chip-bg);
+    &:hover { background: rgba(255,107,0,0.07); }
+    &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,107,0,0.25); }
   }
 
-  &:focus-visible {
-    outline: 2px solid var(--chip-color, var(--color-primary));
-    outline-offset: 2px;
+  &__delete-btn {
+    align-self: stretch;
+    padding: var(--space-2) 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-error-dark, #C92A2A);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    transition: background var(--transition-fast);
+
+    &:hover { background: #FFF5F5; }
+    &:focus-visible { outline: 2px solid var(--color-error-dark, #C92A2A); outline-offset: 2px; }
   }
 }
 
-// ── OCR 추출 버튼 ─────────────────────────────────────────────────────────────
-
-.file-item__ocr-btn {
-  align-self: flex-start;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  font-family: inherit;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: transparent;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-  white-space: nowrap;
-
-  &:hover { background: rgba(255, 107, 0, 0.07); }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.25);
-  }
-}
 
 // ── OCR 패널 ──────────────────────────────────────────────────────────────────
 

@@ -16,6 +16,7 @@
         role="group"
         aria-roledescription="슬라이드"
         :aria-label="`${i + 1}번 파일, 전체 ${slides.length}개`"
+        :inert="i !== current || undefined"
       >
         <!-- 이미지 -->
         <template v-if="slide.kind === 'image'">
@@ -24,8 +25,7 @@
               class="att-swiper__img-btn"
               :aria-label="`${slide.label} 확대 보기`"
               :data-slide-id="slide.id"
-              :tabindex="i === current ? 0 : -1"
-              @click="openLightbox(slide, $event.currentTarget as HTMLElement)"
+                @click="openLightbox(slide, $event.currentTarget as HTMLElement)"
             >
               <img
                 :src="slide.url"
