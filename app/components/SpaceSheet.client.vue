@@ -196,6 +196,10 @@ function handleClose(): void {
 // 배경 잠금: 헤더 + 메인만 inert — tab-bar(z-index:200)는 열어 둠
 const BG_SELECTORS = ['.app-header', '.app-main']
 
+// iOS에서 body overflow:hidden 시 스크롤 위치가 날아가는 문제 방지
+// 열 때: scrollY 저장 + body position:fixed, 닫을 때: 복원 + scrollTo
+let savedScrollY = 0
+
 function lockBackground(): void {
   for (const sel of BG_SELECTORS) {
     const el = document.querySelector<HTMLElement>(sel)
@@ -204,7 +208,11 @@ function lockBackground(): void {
       el.setAttribute('aria-hidden', 'true')
     }
   }
+  savedScrollY = window.scrollY
   document.body.style.overflow = 'hidden'
+  document.body.style.position = 'fixed'
+  document.body.style.top = `-${savedScrollY}px`
+  document.body.style.width = '100%'
 }
 
 function unlockBackground(): void {
@@ -216,6 +224,10 @@ function unlockBackground(): void {
     }
   }
   document.body.style.overflow = ''
+  document.body.style.position = ''
+  document.body.style.top = ''
+  document.body.style.width = ''
+  window.scrollTo({ top: savedScrollY, behavior: 'instant' as ScrollBehavior })
 }
 
 // 포커스 트랩: 시트 안의 focusable 요소를 순환

@@ -13,8 +13,10 @@ export const TYPE_LABELS: Record<ItemDocType, string> = {
 
 // ── 날짜 / 금액 ───────────────────────────────────────────────────────────────
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | undefined | null): string {
+  if (!iso) return ''
   const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
   return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일'
 }
 
