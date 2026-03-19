@@ -298,6 +298,7 @@
               class="field__input"
               :class="{ 'field__input--clearable': form.purchaseDate }"
               type="date"
+              placeholder="연도-월-일"
               min="1900-01-01"
               :max="todayIso()"
               aria-label="구매일 선택"
@@ -817,8 +818,18 @@ async function submit(): Promise<void> {
     transition: border-color var(--transition-fast);
     appearance: none;
 
-    // iOS Safari는 date input에 text-align: center를 기본 적용하므로 명시적으로 left 지정
-    &[type="date"] { text-align: left; }
+    // iOS Safari date input 정렬/크기 보정
+    &[type="date"] {
+      text-align: left;
+      // iOS가 값 없을 때 input을 줄이지 않도록 높이 고정
+      min-height: 2.75rem;
+      box-sizing: border-box;
+      // iOS Safari는 ::-webkit-date-and-time-value가 text-align을 별도 제어함
+      &::-webkit-date-and-time-value {
+        text-align: left;
+        margin: 0;
+      }
+    }
 
     // 숫자 스피너 제거
     &[type="number"] {
