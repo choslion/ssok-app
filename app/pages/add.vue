@@ -260,7 +260,7 @@
           <label class="field__label">
             제품 <span class="form-section__optional">(선택)</span>
           </label>
-          <p class="field__hint">제품 종류를 선택하면 나중에 한눈에 모아볼 수 있어요.</p>
+          <p class="field__hint">어떤 카테고리에 넣어둘까요?</p>
           <ChipRow
             v-model="topicChipComputed"
             :chips="allTopicChips"
@@ -288,7 +288,7 @@
             보관 장소
             <span v-if="derivedType !== 'manual'" class="form-section__optional">(선택)</span>
           </label>
-          <p class="field__hint">어디에 두었는지 기록해 두면 나중에 바로 찾을 수 있어요.</p>
+          <p class="field__hint">나중에 어디서 찾으면 될까요?</p>
           <ChipRow
             v-model="spaceChipComputed"
             :chips="allSpaceChips"
