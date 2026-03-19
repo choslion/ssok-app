@@ -1003,8 +1003,8 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
     &:disabled { opacity: 0.4; cursor: not-allowed; }
 
     &:focus-visible {
-      outline: 2px solid #fff;
-      outline-offset: 2px;
+      outline: 2px solid var(--color-primary);
+      outline-offset: 3px;
     }
 
     &--spinning svg {
