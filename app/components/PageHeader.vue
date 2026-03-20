@@ -58,8 +58,8 @@ function handleBack(): void {
   // Break out of page-container horizontal padding for full-width background
   margin-left: calc(-1 * var(--space-4));
   margin-right: calc(-1 * var(--space-4));
-  padding: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-4);
+  padding: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
   background: rgba(248, 249, 250, 0.95);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -68,8 +68,8 @@ function handleBack(): void {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
     border-radius: var(--radius-sm);
     color: var(--color-sub);
