@@ -65,7 +65,7 @@
       <!-- 첨부 파일 섹션 -->
       <section class="attachments">
         <h2 class="attachments__heading">
-          <template v-if="isManualPageSet">{{ item.type === 'warranty' ? '보증서' : '설명서' }} ({{ manualPages.length }}페이지)</template>
+          <template v-if="isManualPageSet">{{ item.type === 'warranty' ? '보증서' : '설명서' }} ({{ orderedAttachments.length }}페이지)</template>
           <template v-else>첨부 파일</template>
         </h2>
 
@@ -311,14 +311,9 @@ const orderedAttachments = computed(() => {
   return [...attachments.value].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
 })
 
-// 설명서·보증서 이미지 페이지 목록 (kind=image, attachmentIds 순서)
-const manualPages = computed(() =>
-  orderedAttachments.value.filter(a => a.kind === 'image' && (a.type === 'manual' || a.type === 'warranty')),
-)
-
-// 페이지 뷰어 모드: manual 또는 warranty 아이템이고 이미지 페이지가 2개 이상일 때
+// 페이지 뷰어 모드: manual 또는 warranty 아이템이고 첨부 파일이 2개 이상일 때
 const isManualPageSet = computed(() =>
-  (item.value?.type === 'manual' || item.value?.type === 'warranty') && manualPages.value.length > 1,
+  (item.value?.type === 'manual' || item.value?.type === 'warranty') && orderedAttachments.value.length > 1,
 )
 
 // ── Swiper 슬라이드 데이터 ────────────────────────────────────────────────────
@@ -877,7 +872,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   padding: 2px var(--space-2);
   border-radius: var(--radius-full);
 
-  &--normal  { color: #2F9E44; background: #EBFBEE; }
+  &--normal  { color: #868E96; background: #F1F3F5; }
   &--soon    { color: #E8590C; background: #FFF4E6; }
   &--expired { color: #868E96; background: #F1F3F5; }
 }

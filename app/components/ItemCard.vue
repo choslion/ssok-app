@@ -30,7 +30,7 @@
         <span>{{ item.store }}</span>
         <span aria-hidden="true">·</span>
       </template>
-      <span>{{ item.purchaseDate ? formatDate(item.purchaseDate) : '—' }}</span>
+      <span>{{ item.purchaseDate ? formatDate(item.purchaseDate) : '-' }}</span>
     </div>
 
     <div class="item-card__footer">
