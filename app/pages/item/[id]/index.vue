@@ -35,7 +35,7 @@
       <section class="meta-card">
         <div class="meta-card__header">
           <h1 class="meta-card__name">{{ item.title }}</h1>
-          <span class="category-badge">{{ TYPE_LABELS[item.type] }}</span>
+          <span class="category-badge">{{ TYPE_LABELS[availableTabs.length > 1 ? activeTypeTab : item.type] }}</span>
         </div>
 
         <dl class="meta-list">
@@ -65,9 +65,23 @@
       <!-- 첨부 파일 섹션 -->
       <section class="attachments">
         <h2 class="attachments__heading">
-          <template v-if="isManualPageSet">{{ item.type === 'warranty' ? '보증서' : '설명서' }} ({{ orderedAttachments.length }}페이지)</template>
+          <template v-if="availableTabs.length <= 1 && isManualPageSet">{{ activeTypeTab === 'warranty' ? '보증서' : '설명서' }} ({{ activeTabSwiperSlides.length }}페이지)</template>
           <template v-else>첨부 파일</template>
         </h2>
+
+        <!-- 탭 (멀티타입 아이템일 때만) -->
+        <div v-if="availableTabs.length > 1" ref="tabsEl" role="tablist" class="att-tabs" aria-label="문서 종류 선택">
+          <button
+            v-for="tab in availableTabs"
+            :key="tab"
+            type="button"
+            role="tab"
+            :aria-selected="activeTypeTab === tab"
+            :class="['att-tab', { 'att-tab--active': activeTypeTab === tab }]"
+            @click="activeTypeTab = tab"
+          >{{ TYPE_LABELS[tab] }}<span class="att-tab__count">{{ typeGroups[tab]!.length }}</span></button>
+          <div class="att-tabs__indicator" :style="indicatorStyle" aria-hidden="true"></div>
+        </div>
 
         <p v-if="!attachments.length" class="attachments__empty">
           첨부된 파일이 없습니다.
@@ -76,10 +90,10 @@
         <!-- ── 첨부 파일 슬라이더 ─────────────────────────────── -->
         <template v-else>
           <AttachmentSwiper
-            v-model="currentPage"
-            :slides="swiperSlides"
+            v-model="activeCurrentPage"
+            :slides="activeTabSwiperSlides"
             :aria-label="isManualPageSet
-              ? (item.type === 'warranty' ? '보증서 페이지 뷰어' : '설명서 페이지 뷰어')
+              ? (activeTypeTab === 'warranty' ? '보증서 페이지 뷰어' : '설명서 페이지 뷰어')
               : '첨부 파일 뷰어'"
           >
             <template #controls="{ slide, active }">
@@ -299,10 +313,7 @@ const imageToolsBusy = computed(() =>
   rotating.value !== null || cropSession.value !== null || applying.value,
 )
 
-// ── 설명서 페이지 뷰어 ────────────────────────────────────────────────────────
-
-// 현재 표시 중인 페이지 인덱스 (설명서 세트 전용)
-const currentPage = ref(0)
+// ── 첨부 파일 뷰어 ───────────────────────────────────────────────────────────
 
 // attachmentIds 순서대로 정렬한 첨부 파일 목록
 const orderedAttachments = computed(() => {
@@ -311,20 +322,73 @@ const orderedAttachments = computed(() => {
   return [...attachments.value].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
 })
 
-// 페이지 뷰어 모드: manual 또는 warranty 아이템이고 첨부 파일이 2개 이상일 때
-const isManualPageSet = computed(() =>
-  (item.value?.type === 'manual' || item.value?.type === 'warranty') && orderedAttachments.value.length > 1,
+// 탭 표시 순서
+const TAB_ORDER: AttachmentDocType[] = ['receipt', 'warranty', 'manual']
+
+// 타입별 첨부 파일 그룹
+const typeGroups = computed(() => {
+  const groups: Partial<Record<AttachmentDocType, Attachment[]>> = {}
+  for (const att of orderedAttachments.value) {
+    if (!groups[att.type]) groups[att.type] = []
+    groups[att.type]!.push(att)
+  }
+  return groups
+})
+
+// 첨부 파일이 있는 타입 목록 (탭 표시용)
+const availableTabs = computed<AttachmentDocType[]>(() =>
+  TAB_ORDER.filter(t => (typeGroups.value[t]?.length ?? 0) > 0),
 )
 
-// ── Swiper 슬라이드 데이터 ────────────────────────────────────────────────────
+// 현재 활성 탭
+const activeTypeTab = ref<AttachmentDocType>('receipt')
 
-const swiperSlides = computed(() =>
-  orderedAttachments.value.map(att => ({
+// 탭 인디케이터
+const tabsEl = useTemplateRef<HTMLDivElement>('tabsEl')
+const indicatorStyle = ref({ left: '0px', width: '0px' })
+
+// 아이템 로드 후 첫 번째 탭으로 초기화
+watch(availableTabs, tabs => {
+  if (tabs.length > 0 && !tabs.includes(activeTypeTab.value)) {
+    activeTypeTab.value = tabs[0]!
+  }
+}, { immediate: true })
+
+// DOM 업데이트 완료 후 인디케이터 위치 동기화
+// activeTypeTab·availableTabs 어느 쪽이 바뀌어도 자동 추적
+watchEffect(() => {
+  void availableTabs.value
+  void activeTypeTab.value
+  if (!tabsEl.value) return
+  const activeBtn = tabsEl.value.querySelector<HTMLButtonElement>('.att-tab--active')
+  if (!activeBtn) return
+  indicatorStyle.value = { left: activeBtn.offsetLeft + 'px', width: activeBtn.offsetWidth + 'px' }
+}, { flush: 'post' })
+
+// 탭별 페이지 인덱스
+const tabCurrentPages = ref<Partial<Record<AttachmentDocType, number>>>({})
+
+const activeCurrentPage = computed({
+  get: () => tabCurrentPages.value[activeTypeTab.value] ?? 0,
+  set: (v: number) => {
+    tabCurrentPages.value = { ...tabCurrentPages.value, [activeTypeTab.value]: v }
+  },
+})
+
+// 현재 탭의 슬라이드 데이터
+const activeTabSwiperSlides = computed(() =>
+  (typeGroups.value[activeTypeTab.value] ?? []).map(att => ({
     id: att.id,
     url: objectUrls.value.get(att.id) ?? '',
     kind: att.kind,
     label: TYPE_LABELS[att.type] + (att.kind === 'image' ? ' 이미지' : ' PDF'),
   })),
+)
+
+// 현재 탭이 설명서/보증서이고 2개 이상이면 페이지 세트 모드
+const isManualPageSet = computed(() =>
+  (activeTypeTab.value === 'manual' || activeTypeTab.value === 'warranty') &&
+  (typeGroups.value[activeTypeTab.value]?.length ?? 0) > 1,
 )
 
 function attachmentById(id: string): Attachment | undefined {
@@ -349,7 +413,7 @@ async function appendPages(e: Event): Promise<void> {
         id,
         itemId: item.value.id,
         kind: 'image',
-        type: item.value.type as AttachmentDocType,
+        type: activeTypeTab.value,
         mime: file.type,
         blob: file,
         createdAt: new Date().toISOString(),
@@ -363,8 +427,8 @@ async function appendPages(e: Event): Promise<void> {
     const updatedIds = [...item.value.attachmentIds, ...newIds]
     await updateItem(item.value.id, { attachmentIds: updatedIds })
     item.value = { ...item.value, attachmentIds: updatedIds }
-    // 새로 추가된 첫 페이지로 이동 (orderedAttachments 기준 인덱스)
-    currentPage.value = orderedAttachments.value.length - newIds.length
+    // 새로 추가된 첫 페이지로 이동 (활성 탭 기준 인덱스)
+    activeCurrentPage.value = (typeGroups.value[activeTypeTab.value]?.length ?? 1) - newIds.length
   } finally {
     appendingPages.value = false
   }
@@ -734,6 +798,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
 
 <style scoped lang="scss">
 .detail-page {
+  padding-top: var(--space-3);
   padding-bottom: var(--space-7);
 }
 
@@ -834,6 +899,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   border-radius: var(--radius-full);
   white-space: nowrap;
   margin-top: 4px;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 // ── 메타 목록 ─────────────────────────────────────────────────────────────────
@@ -929,6 +995,71 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   &--receipt  { color: #1971C2; background: #E7F5FF; }
   &--manual   { color: #5C940D; background: #F4FCE3; }
   &--warranty { color: #862E9C; background: #F8F0FC; }
+}
+
+// ── 문서 종류 탭 ──────────────────────────────────────────────────────────────
+
+.att-tabs {
+  position: relative;
+  display: flex;
+  gap: 0;
+  margin: 0 calc(-1 * var(--space-5)) var(--space-4);
+  padding: 0 var(--space-5);
+  border-bottom: 1.5px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+
+  &__indicator {
+    position: absolute;
+    bottom: -1.5px;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 1;
+    transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+.att-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-sub);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+
+  &--active { color: var(--color-primary); }
+
+  &:hover:not(.att-tab--active) { color: var(--color-text); }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  &__count {
+    font-size: 0.625rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-orange-tint);
+    color: var(--color-orange-text);
+
+    .att-tab--active & {
+      background: var(--color-primary);
+      color: #fff;
+    }
+  }
 }
 
 // ── 설명서 페이지 네비게이터 → AttachmentSwiper 컴포넌트로 이전 ───────────────

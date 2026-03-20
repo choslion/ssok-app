@@ -4,7 +4,12 @@
       <component :is="nameTag" class="item-card__name">{{ item.title }}</component>
       <!-- badge 슬롯: 기본값은 type 배지, 만료 페이지 등에서 D-day 배지로 교체 가능 -->
       <slot name="badge">
-        <span class="item-card__badge">
+        <!-- 멀티타입 배지 -->
+        <div v-if="item.attachmentTypes && item.attachmentTypes.length > 1" class="item-card__multi-badges">
+          <span v-for="t in item.attachmentTypes" :key="t" class="item-card__badge item-card__badge--small">{{ MULTI_TYPE_LABELS[t] }}</span>
+        </div>
+        <!-- 단일 배지 -->
+        <span v-else class="item-card__badge">
           <!-- 영수증 아이콘 -->
           <svg v-if="item.type === 'receipt'" width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
@@ -53,7 +58,7 @@
 
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
-import type { Item } from '~~/shared/types/ssok'
+import type { Item, AttachmentDocType } from '~~/shared/types/ssok'
 import { TYPE_LABELS, formatDate, formatAmount, warrantyStatus } from '~~/shared/utils/format'
 
 withDefaults(defineProps<{
@@ -61,6 +66,12 @@ withDefaults(defineProps<{
   to: RouteLocationRaw
   nameTag?: string
 }>(), { nameTag: 'h2' })
+
+const MULTI_TYPE_LABELS: Record<AttachmentDocType, string> = {
+  receipt:  '영수증',
+  warranty: '보증서',
+  manual:   '설명서',
+}
 </script>
 
 <style scoped lang="scss">
@@ -104,6 +115,14 @@ withDefaults(defineProps<{
     margin: 0;
   }
 
+  &__multi-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
   &__badge {
     flex-shrink: 0;
     display: inline-flex;
@@ -118,6 +137,11 @@ withDefaults(defineProps<{
     white-space: nowrap;
 
     svg { flex-shrink: 0; }
+
+    &--small {
+      font-size: 0.625rem;
+      padding: 1px var(--space-1);
+    }
   }
 
   &__meta {
