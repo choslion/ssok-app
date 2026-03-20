@@ -1,5 +1,5 @@
 <template>
-  <NuxtLink :to="to" class="item-card" :class="'item-card--' + item.type">
+  <NuxtLink :to="to" class="item-card">
     <div class="item-card__header">
       <component :is="nameTag" class="item-card__name">{{ item.title }}</component>
       <!-- badge 슬롯: 기본값은 type 배지, 만료 페이지 등에서 D-day 배지로 교체 가능 -->
@@ -26,8 +26,10 @@
     </div>
 
     <div class="item-card__meta">
-      <span>{{ item.store ?? '—' }}</span>
-      <span aria-hidden="true">·</span>
+      <template v-if="item.store">
+        <span>{{ item.store }}</span>
+        <span aria-hidden="true">·</span>
+      </template>
       <span>{{ item.purchaseDate ? formatDate(item.purchaseDate) : '—' }}</span>
     </div>
 
@@ -69,17 +71,10 @@ withDefaults(defineProps<{
   padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-card);
   border: 1px solid transparent;
-  border-left: 3px solid var(--card-accent, transparent);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-
-  // 타입별 왼쪽 accent (주황 계열 3단계)
-  &--receipt  { --card-accent: #FFD0A8; } // 연한 피치
-  &--warranty { --card-accent: #FFA94D; } // 앰버
-  &--manual   { --card-accent: #FF7C2A; } // 진한 주황
 
   &:hover {
     border-color: rgba(255, 107, 0, 0.25);
-    border-left-color: var(--card-accent, transparent);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
   }
 

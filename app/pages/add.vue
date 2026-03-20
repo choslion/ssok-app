@@ -137,7 +137,6 @@
               <div class="file-section__header">
                 <span class="file-section__title">{{ TYPE_LABELS[group.type] }}</span>
                 <span class="file-section__count">{{ group.countLabel }}</span>
-                <span v-if="group.isSet" class="file-section__set-note">세트로 저장</span>
               </div>
               <div class="file-grid" role="list" :aria-label="TYPE_LABELS[group.type] + ' 파일 목록'">
                 <button
@@ -417,15 +416,14 @@
             <span class="fp__pdf-size">{{ formatSize(currentPreviewPf.file.size) }}</span>
           </div>
         </template>
+        <!-- 이전 / 다음 화살표 — fp__view 기준으로 수직 중앙 정렬 -->
+        <button v-if="previewIdx > 0" type="button" class="fp__nav fp__nav--prev" aria-label="이전 파일" @click.stop="previewIdx--; fpScale = 1">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button v-if="previewIdx < previewFiles.length - 1" type="button" class="fp__nav fp__nav--next" aria-label="다음 파일" @click.stop="previewIdx++; fpScale = 1">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
-
-      <!-- 이전 / 다음 화살표 -->
-      <button v-if="previewIdx > 0" type="button" class="fp__nav fp__nav--prev" aria-label="이전 파일" @click="previewIdx--; fpScale = 1">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button v-if="previewIdx < previewFiles.length - 1" type="button" class="fp__nav fp__nav--next" aria-label="다음 파일" @click="previewIdx++; fpScale = 1">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
 
       <!-- 하단 시트 -->
       <div class="fp__bottom">
@@ -1140,7 +1138,7 @@ async function submit(): Promise<void> {
 // ── field ─────────────────────────────────────────────────────────────────────
 
 .field {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
 
   &:last-child { margin-bottom: 0; }
 
@@ -1650,11 +1648,6 @@ async function submit(): Promise<void> {
     line-height: 1.6;
   }
 
-  &__set-note {
-    font-size: 0.75rem;
-    color: var(--color-sub);
-    margin-left: auto;
-  }
 
 }
 
