@@ -35,6 +35,9 @@
               />
             </button>
           </div>
+          <!-- 탭 힌트 (이미지 확대 안내) -->
+          <p class="att-swiper__tap-hint" aria-hidden="true">탭하면 크게 볼 수 있어요</p>
+
           <!-- 회전/크롭 등 컨트롤 — img-wrap 밖에 배치해 고정 높이에 가려지지 않음 -->
           <!-- v-if 대신 CSS opacity로 fade — Transition+v-if는 빠른 current 변경 시 끊김 -->
           <div
@@ -119,43 +122,45 @@
         </button>
       </div>
 
-      <!-- 이미지 -->
+      <!-- 이미지 + 화살표 (헤더 아래 독립 영역) -->
       <div
-        class="lb__img-wrap"
+        class="lb__body"
         @click="closeLightbox"
         @touchstart.passive="onTouchStart"
         @touchmove.prevent="onTouchMove"
         @touchend.passive="onTouchEnd"
       >
-        <img
-          v-if="lightbox"
-          :src="lightbox.url"
-          :alt="lightbox.label"
-          class="lb__img"
-          :style="imgTransformStyle"
-          draggable="false"
-        />
-      </div>
+        <div class="lb__img-wrap">
+          <img
+            v-if="lightbox"
+            :src="lightbox.url"
+            :alt="lightbox.label"
+            class="lb__img"
+            :style="imgTransformStyle"
+            draggable="false"
+          />
+        </div>
 
-      <!-- 이전 / 다음 화살표 -->
-      <template v-if="slides.length > 1">
-        <button
-          class="lb__arrow lb__arrow--prev"
-          :disabled="lbIdx === 0"
-          aria-label="이전 파일"
-          @click.stop="lbPrev"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <button
-          class="lb__arrow lb__arrow--next"
-          :disabled="lbIdx === slides.length - 1"
-          aria-label="다음 파일"
-          @click.stop="lbNext"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-      </template>
+        <!-- 이전 / 다음 화살표 — lb__body 기준 수직 중앙 -->
+        <template v-if="slides.length > 1">
+          <button
+            class="lb__arrow lb__arrow--prev"
+            :disabled="lbIdx === 0"
+            aria-label="이전 파일"
+            @click.stop="lbPrev"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button
+            class="lb__arrow lb__arrow--next"
+            :disabled="lbIdx === slides.length - 1"
+            aria-label="다음 파일"
+            @click.stop="lbNext"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </template>
+      </div>
     </div>
   </Teleport>
 </template>
@@ -520,6 +525,13 @@ function onTouchEnd(e: TouchEvent): void {
   pointer-events: none;
 }
 
+.att-swiper__tap-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-sub);
+  margin: var(--space-1) 0 0;
+}
+
 // img-wrap 바깥에 위치 — 고정 높이와 무관하게 항상 노출
 .att-swiper__controls {
   display: flex;
@@ -615,24 +627,33 @@ function onTouchEnd(e: TouchEvent): void {
   position: fixed;
   inset: 0;
   z-index: 3000;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.82);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
 }
 
 // ── 라이트박스 헤더 ─────────────────────────────────────────────
 
 .lb__header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
   z-index: 1;
+}
+
+// ── 라이트박스 이미지 + 화살표 영역 ──────────────────────────────
+
+.lb__body {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+  touch-action: none;
 }
 
 .lb__counter {
@@ -692,8 +713,6 @@ function onTouchEnd(e: TouchEvent): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  touch-action: none; // 브라우저 기본 pinch-zoom 억제 → 직접 제어
 }
 
 .lb__img {

@@ -1725,7 +1725,7 @@ async function submit(): Promise<void> {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.82);
   display: flex;
   flex-direction: column;
   touch-action: none;

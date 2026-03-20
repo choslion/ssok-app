@@ -1018,7 +1018,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(0, 0, 0, 0.82);
   display: flex;
   flex-direction: column;
 
