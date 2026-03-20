@@ -1,13 +1,27 @@
 <template>
-  <NuxtLink :to="to" class="item-card">
+  <NuxtLink :to="to" class="item-card" :class="'item-card--' + item.type">
     <div class="item-card__header">
       <component :is="nameTag" class="item-card__name">{{ item.title }}</component>
       <!-- badge 슬롯: 기본값은 type 배지, 만료 페이지 등에서 D-day 배지로 교체 가능 -->
       <slot name="badge">
-        <span
-          class="item-card__badge"
-          :class="'item-card__badge--' + item.type"
-        >{{ TYPE_LABELS[item.type] }}</span>
+        <span class="item-card__badge">
+          <!-- 영수증 아이콘 -->
+          <svg v-if="item.type === 'receipt'" width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <!-- 보증서 아이콘 -->
+          <svg v-else-if="item.type === 'warranty'" width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+          <!-- 설명서 아이콘 -->
+          <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+          {{ TYPE_LABELS[item.type] }}
+        </span>
       </slot>
     </div>
 
@@ -23,7 +37,6 @@
         <span
           v-if="(item.type === 'manual' || item.type === 'warranty') && item.attachmentIds.length > 1"
           class="item-card__page-count"
-          :class="'item-card__page-count--' + item.type"
         >{{ item.attachmentIds.length }}페이지</span>
         <span
           v-else
@@ -56,10 +69,17 @@ withDefaults(defineProps<{
   padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-card);
   border: 1px solid transparent;
+  border-left: 3px solid var(--card-accent, transparent);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  // 타입별 왼쪽 accent (주황 계열 3단계)
+  &--receipt  { --card-accent: #FFD0A8; } // 연한 피치
+  &--warranty { --card-accent: #FFA94D; } // 앰버
+  &--manual   { --card-accent: #FF7C2A; } // 진한 주황
 
   &:hover {
     border-color: rgba(255, 107, 0, 0.25);
+    border-left-color: var(--card-accent, transparent);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
   }
 
@@ -91,17 +111,18 @@ withDefaults(defineProps<{
 
   &__badge {
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--badge-color, var(--color-primary));
-    background: var(--badge-bg, rgba(255, 107, 0, 0.1));
+    font-weight: 700;
+    color: var(--color-primary);
+    background: var(--color-orange-tint);
     padding: 2px var(--space-2);
     border-radius: var(--radius-full);
     white-space: nowrap;
 
-    &--receipt  { --badge-color: #0369A1; --badge-bg: #E0F2FE; }
-    &--warranty { --badge-color: #2F9E44; --badge-bg: #EBFBEE; }
-    &--manual   { --badge-color: #7950F2; --badge-bg: #F3F0FF; }
+    svg { flex-shrink: 0; }
   }
 
   &__meta {
@@ -122,23 +143,22 @@ withDefaults(defineProps<{
 
   &__warranty {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     padding: 2px var(--space-2);
     border-radius: var(--radius-full);
 
-    &--normal  { color: #2F9E44; background: #EBFBEE; }
+    &--normal  { color: #868E96; background: #F1F3F5; }
     &--soon    { color: #E8590C; background: #FFF4E6; }
     &--expired { color: #868E96; background: #F1F3F5; }
   }
 
   &__page-count {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     padding: 2px var(--space-2);
     border-radius: var(--radius-full);
-
-    &--manual  { color: #7950F2; background: #F3F0FF; }
-    &--warranty { color: #2F9E44; background: #EBFBEE; }
+    color: #868E96;
+    background: #F1F3F5;
   }
 
   &__amount {

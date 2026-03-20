@@ -126,36 +126,59 @@
             >＋ {{ t.label }} 추가</button>
           </div>
 
-          <p v-if="manualPageCount > 1" class="manual-set-hint">
-            설명서 {{ manualPageCount }}페이지가 하나의 세트로 저장됩니다.
-          </p>
-          <p v-if="warrantyPageCount > 1" class="manual-set-hint manual-set-hint--warranty">
-            보증서 {{ warrantyPageCount }}페이지가 하나의 세트로 저장됩니다.
-          </p>
-
-          <!-- 썸네일 그리드 -->
-          <div v-if="pendingFiles.length" class="file-grid" role="list">
-            <button
-              v-for="(pf, i) in pendingFiles"
-              :key="pf.id"
-              type="button"
-              role="listitem"
-              class="file-grid__item"
-              :aria-label="pf.file.name + ' 미리보기'"
-              @click="openPreview(i, $event.currentTarget)"
+          <!-- 서류 종류별 그룹 섹션 -->
+          <div v-if="pendingFiles.length" class="file-sections" aria-label="첨부된 파일 목록">
+            <div
+              v-for="group in fileGroups"
+              :key="group.type"
+              class="file-section"
+              :class="'file-section--' + group.type"
             >
-              <img
-                v-if="thumbnailUrls.get(pf.id)"
-                :src="thumbnailUrls.get(pf.id)"
-                :alt="pf.file.name"
-                class="file-grid__thumb"
-              />
-              <div v-else class="file-grid__pdf">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span class="file-grid__pdf-name">{{ pf.file.name }}</span>
+              <div class="file-section__header">
+                <span class="file-section__title">{{ TYPE_LABELS[group.type] }}</span>
+                <span class="file-section__count">{{ group.countLabel }}</span>
+                <span v-if="group.isSet" class="file-section__set-note">세트로 저장</span>
               </div>
-              <span class="file-grid__badge" :class="'file-grid__badge--' + pf.docType">{{ TYPE_LABELS[pf.docType] }}</span>
-            </button>
+              <div class="file-grid" role="list" :aria-label="TYPE_LABELS[group.type] + ' 파일 목록'">
+                <button
+                  v-for="({ pf }, localIdx) in group.files.slice(0, group.files.length > 4 ? 3 : 4)"
+                  :key="pf.id"
+                  type="button"
+                  role="listitem"
+                  class="file-grid__item"
+                  :aria-label="pf.file.name + ' 미리보기'"
+                  @click="openPreview(group.type, localIdx, $event.currentTarget)"
+                >
+                  <img
+                    v-if="thumbnailUrls.get(pf.id)"
+                    :src="thumbnailUrls.get(pf.id)"
+                    :alt="pf.file.name"
+                    class="file-grid__thumb"
+                  />
+                  <div v-else class="file-grid__pdf">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="file-grid__pdf-name">{{ pf.file.name }}</span>
+                  </div>
+                </button>
+                <!-- +N 오버플로우 버튼: 5장 이상일 때 4번째 슬롯에 표시 -->
+                <button
+                  v-if="group.files.length > 4"
+                  type="button"
+                  role="listitem"
+                  class="file-grid__item file-grid__overflow"
+                  :aria-label="'+ ' + (group.files.length - 3) + '장 더 보기'"
+                  @click="openPreview(group.type, 3, $event.currentTarget)"
+                >
+                  <img
+                    v-if="thumbnailUrls.get(group.files[3]!.pf.id)"
+                    :src="thumbnailUrls.get(group.files[3]!.pf.id)"
+                    :alt="group.files[3]!.pf.file.name"
+                    class="file-grid__thumb"
+                  />
+                  <div class="file-grid__overflow-badge">+{{ group.files.length - 3 }}</div>
+                </button>
+              </div>
+            </div>
           </div>
 
         </template>
@@ -369,7 +392,7 @@
       <div class="fp__header">
         <div class="fp__header-info">
           <span class="fp__title-text">파일 미리보기</span>
-          <span class="fp__counter" aria-live="polite" aria-atomic="true">{{ previewIdx + 1 }} / {{ pendingFiles.length }}</span>
+          <span class="fp__counter" aria-live="polite" aria-atomic="true">{{ previewIdx + 1 }} / {{ previewFiles.length }}</span>
         </div>
         <button type="button" class="fp__close" aria-label="닫기" @click="closePreview">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -396,10 +419,10 @@
       </div>
 
       <!-- 이전 / 다음 화살표 -->
-      <button v-if="previewIdx > 0" type="button" class="fp__nav fp__nav--prev" aria-label="이전 파일" @click="previewIdx--">
+      <button v-if="previewIdx > 0" type="button" class="fp__nav fp__nav--prev" aria-label="이전 파일" @click="previewIdx--; fpScale = 1">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <button v-if="previewIdx < pendingFiles.length - 1" type="button" class="fp__nav fp__nav--next" aria-label="다음 파일" @click="previewIdx++">
+      <button v-if="previewIdx < previewFiles.length - 1" type="button" class="fp__nav fp__nav--next" aria-label="다음 파일" @click="previewIdx++; fpScale = 1">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
 
@@ -577,11 +600,22 @@ watch(
 )
 
 const previewOpen = ref(false)
-const previewIdx = ref(0)
-const currentPreviewPf = computed(() => pendingFiles.value[previewIdx.value] ?? null)
+const previewGroupType = ref<AttachmentDocType>('receipt')
+const previewFiles = computed(() =>
+  pendingFiles.value.filter(pf => pf.docType === previewGroupType.value)
+)
+const previewIdx = ref(0) // 그룹 내 로컬 인덱스
+const currentPreviewPf = computed(() => previewFiles.value[previewIdx.value] ?? null)
 const fpRef = useTemplateRef<HTMLElement>('fpRef')
 let _fpTrigger: HTMLElement | null = null
 let _fpScrollY = 0
+
+// docType 변경 시 로컬 인덱스 범위 보정
+watch(previewFiles, files => {
+  if (previewOpen.value && previewIdx.value >= files.length) {
+    previewIdx.value = Math.max(0, files.length - 1)
+  }
+})
 
 function _lockScroll(): void {
   _fpScrollY = window.scrollY
@@ -599,9 +633,10 @@ function _unlockScroll(): void {
   window.scrollTo({ top: _fpScrollY, behavior: 'instant' as ScrollBehavior })
 }
 
-function openPreview(idx: number, trigger?: EventTarget | null): void {
+function openPreview(groupType: AttachmentDocType, localIdx: number, trigger?: EventTarget | null): void {
+  previewGroupType.value = groupType
   _fpTrigger = (trigger as HTMLElement) ?? null
-  previewIdx.value = idx
+  previewIdx.value = localIdx
   fpScale.value = 1
   fpPanX.value = 0
   fpPanY.value = 0
@@ -621,11 +656,15 @@ function closePreview(): void {
 }
 
 function removeInPreview(): void {
-  const pf = pendingFiles.value[previewIdx.value]
-  if (pf) revokeThumbnail(pf.id)
-  removeFile(previewIdx.value)
-  if (pendingFiles.value.length === 0) { closePreview(); return }
-  previewIdx.value = Math.min(previewIdx.value, pendingFiles.value.length - 1)
+  const pf = previewFiles.value[previewIdx.value]
+  if (!pf) return
+  const globalIdx = pendingFiles.value.findIndex(p => p.id === pf.id)
+  if (globalIdx !== -1) {
+    revokeThumbnail(pf.id)
+    removeFile(globalIdx)
+  }
+  if (previewFiles.value.length === 0) { closePreview(); return }
+  previewIdx.value = Math.min(previewIdx.value, previewFiles.value.length - 1)
 }
 
 function _trapFpFocus(e: KeyboardEvent): void {
@@ -682,8 +721,8 @@ function onFpTouchEnd(e: TouchEvent): void {
   if (_fpTouchCount === 1 && fpScale.value <= 1 && e.changedTouches[0]) {
     const dx = e.changedTouches[0].clientX - _fpSwipeX
     const dy = e.changedTouches[0].clientY - _fpSwipeY
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 48) {
-      if (dx < 0 && previewIdx.value < pendingFiles.value.length - 1) {
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 80) {
+      if (dx < 0 && previewIdx.value < previewFiles.value.length - 1) {
         previewIdx.value++; fpScale.value = 1
       } else if (dx > 0 && previewIdx.value > 0) {
         previewIdx.value--; fpScale.value = 1
@@ -696,7 +735,7 @@ function onFpTouchEnd(e: TouchEvent): void {
 function _onFpKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') { closePreview(); return }
   if (e.key === 'ArrowLeft' && previewIdx.value > 0) { previewIdx.value--; return }
-  if (e.key === 'ArrowRight' && previewIdx.value < pendingFiles.value.length - 1) { previewIdx.value++; return }
+  if (e.key === 'ArrowRight' && previewIdx.value < previewFiles.value.length - 1) { previewIdx.value++; return }
   _trapFpFocus(e)
 }
 
@@ -721,13 +760,33 @@ const derivedType = computed<ItemDocType>(() => {
   return 'manual'
 })
 
-// 설명서·보증서 이미지 파일이 2개 이상이면 세트 힌트 표시
+// 설명서·보증서 이미지 파일이 2개 이상이면 세트 처리 (기존 로직 유지)
 const manualPageCount = computed(() =>
   pendingFiles.value.filter(pf => pf.docType === 'manual' && pf.file.type.startsWith('image/')).length
 )
 const warrantyPageCount = computed(() =>
   pendingFiles.value.filter(pf => pf.docType === 'warranty' && pf.file.type.startsWith('image/')).length
 )
+
+// 파일 섹션 그룹핑 (UI 표시용 — 데이터 흐름 변경 없음)
+const fileGroups = computed(() => {
+  const order: AttachmentDocType[] = ['receipt', 'warranty', 'manual']
+  return order
+    .map(type => {
+      const files = pendingFiles.value
+        .map((pf, idx) => ({ pf, idx }))
+        .filter(({ pf }) => pf.docType === type)
+      if (files.length === 0) return null
+      const n = files.length
+      const isSet = (type === 'manual' && manualPageCount.value > 1)
+               || (type === 'warranty' && warrantyPageCount.value > 1)
+      const countLabel = type === 'manual'
+        ? `${n}페이지`
+        : `${n}개`
+      return { type, files, countLabel, isSet }
+    })
+    .filter((g): g is NonNullable<typeof g> => g !== null)
+})
 
 // ── 설명서 촬영 세션 ──────────────────────────────────────────────────────────
 
@@ -1555,21 +1614,46 @@ async function submit(): Promise<void> {
 
 // ── 설명서 세트 안내 ──────────────────────────────────────────────────────────
 
-.manual-set-hint {
-  margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: #F3F0FF;
-  border: 1px solid #D0BFFF;
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  color: #7950F2;
-  font-weight: 500;
+// ── 서류 종류별 파일 섹션 ─────────────────────────────────────────────────────
 
-  &--warranty {
-    background: #EBFBEE;
-    border-color: #B2F2BB;
-    color: #2F9E44;
+.file-sections {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.file-section {
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
   }
+
+  &__title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  &__count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-orange-text);
+    background: var(--color-orange-tint);
+    border: 1px solid var(--color-orange-border);
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    line-height: 1.6;
+  }
+
+  &__set-note {
+    font-size: 0.75rem;
+    color: var(--color-sub);
+    margin-left: auto;
+  }
+
 }
 
 // ── 파일 썸네일 그리드 ────────────────────────────────────────────────────────
@@ -1621,22 +1705,23 @@ async function submit(): Promise<void> {
     overflow: hidden;
   }
 
-  &__badge {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    right: 4px;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 0.625rem;
-    font-weight: 700;
-    text-align: center;
-    color: #fff;
-
-    &--receipt  { background: rgba(3, 105, 161, 0.85); }
-    &--warranty { background: rgba(47, 158, 68, 0.85); }
-    &--manual   { background: rgba(121, 80, 242, 0.85); }
+  &__overflow {
+    position: relative;
   }
+
+  &__overflow-badge {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.52);
+    color: #fff;
+    font-size: 1.125rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+  }
+
 }
 
 // ── 풀스크린 프리뷰 모달 ──────────────────────────────────────────────────────
@@ -1769,28 +1854,24 @@ async function submit(): Promise<void> {
   &__chip {
     flex: 1;
     padding: var(--space-2) var(--space-1);
-    border: 1.5px solid var(--color-border);
+    border: 1.5px solid #E9ECEF;
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;
     font-weight: 600;
     font-family: inherit;
     color: var(--color-sub);
-    background: var(--color-surface);
+    background: #FAFAFA;
     text-align: center;
     transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
 
-    &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
-    &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
-    &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
-
     &--active {
-      border-color: var(--chip-color);
-      color: var(--chip-color);
-      background: var(--chip-bg);
+      border-color: var(--color-orange-border);
+      color: var(--color-orange-text);
+      background: var(--color-orange-tint);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--chip-color, var(--color-primary));
+      outline: 2px solid var(--color-primary);
       outline-offset: 2px;
     }
   }

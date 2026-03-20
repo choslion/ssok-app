@@ -153,7 +153,9 @@
           class="crop-modal__close"
           aria-label="자르기 취소"
           @click="cancelCrop"
-        >✕</button>
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
       </div>
 
       <!-- 캔버스 영역 -->
@@ -943,17 +945,17 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   width: 100%;
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-3);
-  border: 1.5px dashed #C9BFFF;
+  border: 1.5px dashed var(--color-orange-border);
   border-radius: var(--radius-sm);
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #7950F2;
+  color: var(--color-orange-text);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast);
 
   &:hover:not(.append-pages-label--loading) {
-    background: #F3F0FF;
-    border-color: #7950F2;
+    background: var(--color-orange-tint);
+    border-color: var(--color-primary);
   }
 
   &--loading {
@@ -962,7 +964,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   }
 
   &:focus-within {
-    outline: 2px solid #7950F2;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 }
@@ -1043,20 +1045,17 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: rgba(255, 255, 255, 0.1);
+    width: 36px;
+    height: 36px;
+    background: transparent;
     border: none;
     border-radius: var(--radius-sm);
     color: #fff;
-    font-size: 1rem;
-    line-height: 1;
     cursor: pointer;
-    font-family: inherit;
     transition: background var(--transition-fast);
 
-    &:hover { background: rgba(255, 255, 255, 0.2); }
-    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+    &:hover { background: rgba(255, 255, 255, 0.12); }
+    &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   }
 
   &__canvas-area {

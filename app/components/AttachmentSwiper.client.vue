@@ -25,7 +25,7 @@
               class="att-swiper__img-btn"
               :aria-label="`${slide.label} 확대 보기`"
               :data-slide-id="slide.id"
-                @click="openLightbox(slide, $event.currentTarget as HTMLElement)"
+                @click="openLightbox(slide, i, $event.currentTarget as HTMLElement)"
             >
               <img
                 :src="slide.url"
@@ -97,17 +97,29 @@
   <!-- ── 라이트박스 모달 ────────────────────────────────────── -->
   <Teleport to="body">
     <div
-      v-if="lightbox"
+      v-if="lbOpen"
       ref="lbRef"
       class="lb"
       role="dialog"
       aria-modal="true"
-      :aria-label="`${lightbox.label} 확대 보기`"
+      :aria-label="lightbox ? lightbox.label + ' 확대 보기' : '파일 확대 보기'"
       @click.self="closeLightbox"
       @keydown.escape="closeLightbox"
       @keydown.tab.prevent="trapFocus"
+      @keydown.left.prevent="lbPrev"
+      @keydown.right.prevent="lbNext"
     >
-      <button ref="lbCloseRef" class="lb__close" aria-label="닫기" @click="closeLightbox">✕</button>
+      <!-- 헤더 -->
+      <div class="lb__header">
+        <span v-if="slides.length > 1" class="lb__counter" aria-live="polite" aria-atomic="true">
+          {{ lbIdx + 1 }} / {{ slides.length }}
+        </span>
+        <button ref="lbCloseRef" class="lb__close" aria-label="닫기" @click="closeLightbox">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- 이미지 -->
       <div
         class="lb__img-wrap"
         @click="closeLightbox"
@@ -116,6 +128,7 @@
         @touchend.passive="onTouchEnd"
       >
         <img
+          v-if="lightbox"
           :src="lightbox.url"
           :alt="lightbox.label"
           class="lb__img"
@@ -123,6 +136,26 @@
           draggable="false"
         />
       </div>
+
+      <!-- 이전 / 다음 화살표 -->
+      <template v-if="slides.length > 1">
+        <button
+          class="lb__arrow lb__arrow--prev"
+          :disabled="lbIdx === 0"
+          aria-label="이전 파일"
+          @click.stop="lbPrev"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button
+          class="lb__arrow lb__arrow--next"
+          :disabled="lbIdx === slides.length - 1"
+          aria-label="다음 파일"
+          @click.stop="lbNext"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </template>
     </div>
   </Teleport>
 </template>
@@ -260,10 +293,12 @@ onUnmounted(() => {
 
 // ── 라이트박스 ───────────────────────────────────────────────
 
-const lightbox    = ref<SwiperSlide | null>(null)
-const lbRef       = ref<HTMLElement | null>(null)
-const lbCloseRef  = ref<HTMLButtonElement | null>(null)
-let   lbTrigger: HTMLElement | null = null   // 열기 전 포커스 위치 기억
+const lbOpen     = ref(false)
+const lbIdx      = ref(0)
+const lightbox   = computed(() => lbOpen.value ? (props.slides[lbIdx.value] ?? null) : null)
+const lbRef      = ref<HTMLElement | null>(null)
+const lbCloseRef = ref<HTMLButtonElement | null>(null)
+let   lbTrigger: HTMLElement | null = null
 let   lbScrollY = 0
 
 function lockScroll(): void {
@@ -282,20 +317,35 @@ function unlockScroll(): void {
   window.scrollTo({ top: lbScrollY, behavior: 'instant' as ScrollBehavior })
 }
 
-function openLightbox(slide: SwiperSlide, trigger: HTMLElement): void {
+function openLightbox(_slide: SwiperSlide, slideIdx: number, trigger: HTMLElement): void {
   lbTrigger = trigger
-  lightbox.value = slide
+  lbIdx.value = slideIdx
   lbScale.value = 1
   lbOriginX.value = 0
   lbOriginY.value = 0
+  lbOpen.value = true
   lockScroll()
-  nextTick(() => lbCloseRef.value?.focus())   // 모달 열리면 닫기 버튼으로 포커스 이동
+  nextTick(() => lbCloseRef.value?.focus())
 }
 
 function closeLightbox(): void {
-  lightbox.value = null
+  lbOpen.value = false
   unlockScroll()
-  nextTick(() => lbTrigger?.focus())          // 모달 닫히면 트리거 버튼으로 포커스 복귀
+  nextTick(() => lbTrigger?.focus())
+}
+
+function lbPrev(): void {
+  if (lbIdx.value > 0) {
+    lbIdx.value--
+    lbScale.value = 1; lbOriginX.value = 0; lbOriginY.value = 0
+  }
+}
+
+function lbNext(): void {
+  if (lbIdx.value < props.slides.length - 1) {
+    lbIdx.value++
+    lbScale.value = 1; lbOriginX.value = 0; lbOriginY.value = 0
+  }
 }
 
 /** Tab / Shift+Tab 키를 모달 내 포커스 가능 요소 안에서만 순환 */
@@ -345,16 +395,22 @@ let panStartX = 0
 let panStartY = 0
 let panStartOriginX = 0
 let panStartOriginY = 0
+let lbSwipeStartX = 0
+let lbTouchCount = 0
 
 function onTouchStart(e: TouchEvent): void {
+  lbTouchCount = e.touches.length
   if (e.touches.length === 2) {
     pinchStartDist = touchDist(e.touches[0], e.touches[1])
     pinchStartScale = lbScale.value
-  } else if (e.touches.length === 1 && lbScale.value > 1) {
-    panStartX = e.touches[0].clientX
-    panStartY = e.touches[0].clientY
-    panStartOriginX = lbOriginX.value
-    panStartOriginY = lbOriginY.value
+  } else if (e.touches.length === 1 && e.touches[0]) {
+    lbSwipeStartX = e.touches[0].clientX
+    if (lbScale.value > 1) {
+      panStartX = e.touches[0].clientX
+      panStartY = e.touches[0].clientY
+      panStartOriginX = lbOriginX.value
+      panStartOriginY = lbOriginY.value
+    }
   }
 }
 
@@ -372,6 +428,16 @@ function onTouchMove(e: TouchEvent): void {
 }
 
 function onTouchEnd(e: TouchEvent): void {
+  // scale === 1 상태에서 좌우 스와이프 → 이전/다음 슬라이드
+  if (lbTouchCount === 1 && lbScale.value <= 1 && e.changedTouches[0]) {
+    const dx = e.changedTouches[0].clientX - lbSwipeStartX
+    if (Math.abs(dx) > 60) {
+      if (dx < 0) lbNext()
+      else lbPrev()
+      lbTouchCount = e.touches.length
+      return
+    }
+  }
   // 핀치 종료 후 scale < 1이면 리셋
   if (e.touches.length < 2 && lbScale.value < MIN_SCALE) {
     lbScale.value = MIN_SCALE
@@ -383,6 +449,7 @@ function onTouchEnd(e: TouchEvent): void {
     lbOriginX.value = 0
     lbOriginY.value = 0
   }
+  lbTouchCount = e.touches.length
 }
 </script>
 
@@ -554,10 +621,50 @@ function onTouchEnd(e: TouchEvent): void {
   justify-content: center;
 }
 
-.lb__close {
+// ── 라이트박스 헤더 ─────────────────────────────────────────────
+
+.lb__header {
   position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  z-index: 1;
+}
+
+.lb__counter {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.lb__close {
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+
+  &:hover { background: rgba(255, 255, 255, 0.12); }
+  &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+}
+
+// ── 라이트박스 화살표 ───────────────────────────────────────────
+
+.lb__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 1;
   width: 40px;
   height: 40px;
@@ -565,15 +672,18 @@ function onTouchEnd(e: TouchEvent): void {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
-  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background var(--transition-fast);
 
-  &:hover { background: rgba(255, 255, 255, 0.28); }
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.28); }
+  &:disabled { opacity: 0.25; cursor: default; }
   &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+  &--prev { left: var(--space-3); }
+  &--next { right: var(--space-3); }
 }
 
 .lb__img-wrap {

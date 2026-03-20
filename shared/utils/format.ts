@@ -56,7 +56,7 @@ export function mergeChips(defaults: string[], extras: string[]): string[] {
 export interface WarrantyStatus { label: string; type: 'normal' | 'soon' | 'expired' }
 
 export function warrantyStatus(endDate: string | undefined): WarrantyStatus {
-  if (!endDate) return { label: '보증 정보 없음', type: 'expired' }
+  if (!endDate) return { label: '보증 없음', type: 'expired' }
   const diffDays = Math.floor((new Date(endDate).getTime() - Date.now()) / 86_400_000)
   if (diffDays < 0)   return { label: '보증 만료',          type: 'expired' }
   if (diffDays <= 30) return { label: '만료 D-' + diffDays, type: 'soon' }
