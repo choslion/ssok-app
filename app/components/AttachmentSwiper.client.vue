@@ -264,6 +264,23 @@ const lightbox    = ref<SwiperSlide | null>(null)
 const lbRef       = ref<HTMLElement | null>(null)
 const lbCloseRef  = ref<HTMLButtonElement | null>(null)
 let   lbTrigger: HTMLElement | null = null   // 열기 전 포커스 위치 기억
+let   lbScrollY = 0
+
+function lockScroll(): void {
+  lbScrollY = window.scrollY
+  document.body.style.overflow = 'hidden'
+  document.body.style.position = 'fixed'
+  document.body.style.top = `-${lbScrollY}px`
+  document.body.style.width = '100%'
+}
+
+function unlockScroll(): void {
+  document.body.style.overflow = ''
+  document.body.style.position = ''
+  document.body.style.top = ''
+  document.body.style.width = ''
+  window.scrollTo({ top: lbScrollY, behavior: 'instant' as ScrollBehavior })
+}
 
 function openLightbox(slide: SwiperSlide, trigger: HTMLElement): void {
   lbTrigger = trigger
@@ -271,13 +288,13 @@ function openLightbox(slide: SwiperSlide, trigger: HTMLElement): void {
   lbScale.value = 1
   lbOriginX.value = 0
   lbOriginY.value = 0
-  document.body.style.overflow = 'hidden'
+  lockScroll()
   nextTick(() => lbCloseRef.value?.focus())   // 모달 열리면 닫기 버튼으로 포커스 이동
 }
 
 function closeLightbox(): void {
   lightbox.value = null
-  document.body.style.overflow = ''
+  unlockScroll()
   nextTick(() => lbTrigger?.focus())          // 모달 닫히면 트리거 버튼으로 포커스 복귀
 }
 

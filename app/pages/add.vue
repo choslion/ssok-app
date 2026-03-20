@@ -581,6 +581,23 @@ const previewIdx = ref(0)
 const currentPreviewPf = computed(() => pendingFiles.value[previewIdx.value] ?? null)
 const fpRef = useTemplateRef<HTMLElement>('fpRef')
 let _fpTrigger: HTMLElement | null = null
+let _fpScrollY = 0
+
+function _lockScroll(): void {
+  _fpScrollY = window.scrollY
+  document.body.style.overflow = 'hidden'
+  document.body.style.position = 'fixed'
+  document.body.style.top = `-${_fpScrollY}px`
+  document.body.style.width = '100%'
+}
+
+function _unlockScroll(): void {
+  document.body.style.overflow = ''
+  document.body.style.position = ''
+  document.body.style.top = ''
+  document.body.style.width = ''
+  window.scrollTo({ top: _fpScrollY, behavior: 'instant' as ScrollBehavior })
+}
 
 function openPreview(idx: number, trigger?: EventTarget | null): void {
   _fpTrigger = (trigger as HTMLElement) ?? null
@@ -589,6 +606,7 @@ function openPreview(idx: number, trigger?: EventTarget | null): void {
   fpPanX.value = 0
   fpPanY.value = 0
   previewOpen.value = true
+  _lockScroll()
   nextTick(() => fpRef.value?.focus())
 }
 
@@ -597,6 +615,7 @@ function closePreview(): void {
   fpScale.value = 1
   fpPanX.value = 0
   fpPanY.value = 0
+  _unlockScroll()
   _fpTrigger?.focus()
   _fpTrigger = null
 }
@@ -1011,30 +1030,25 @@ async function submit(): Promise<void> {
 .type-chip {
   flex: 1;
   padding: var(--space-3) var(--space-2);
-  border: 1.5px solid var(--color-border);
+  border: 1.5px solid #E9ECEF;
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
   font-weight: 600;
   font-family: inherit;
   color: var(--color-sub);
-  background: var(--color-surface);
+  background: #FAFAFA;
   cursor: pointer;
   text-align: center;
   transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
 
-  // 종류별 기본 색조 (비활성)
-  &--receipt  { --chip-color: #0369A1; --chip-bg: #E0F2FE; }
-  &--warranty { --chip-color: var(--color-success); --chip-bg: var(--color-success-bg); }
-  &--manual   { --chip-color: #7950F2; --chip-bg: #F3F0FF; }
-
   &--active {
-    border-color: var(--chip-color);
-    color: var(--chip-color);
-    background: var(--chip-bg);
+    border-color: var(--color-orange-border);
+    color: var(--color-orange-text);
+    background: var(--color-orange-tint);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--chip-color, var(--color-primary));
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 }
@@ -1226,6 +1240,7 @@ async function submit(): Promise<void> {
   font-weight: 700;
   font-family: inherit;
   color: #fff;
+  background: var(--color-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast), transform var(--transition-fast);
   margin-bottom: var(--space-3);
@@ -1234,13 +1249,9 @@ async function submit(): Promise<void> {
   &:active:not(:disabled) { transform: scale(0.98); }
 
   &:focus-visible {
-    outline: 3px solid rgba(0, 0, 0, 0.35);
+    outline: 3px solid rgba(255, 107, 0, 0.4);
     outline-offset: 3px;
   }
-
-  &--receipt  { background: #0369A1; }
-  &--warranty { background: #2F9E44; }
-  &--manual   { background: #7950F2; }
 }
 
 // ── file picker ───────────────────────────────────────────────────────────────
@@ -1297,9 +1308,9 @@ async function submit(): Promise<void> {
 .secondary-add-btn {
   flex: 1;
   padding: var(--space-2) var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid #E9ECEF;
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: #FAFAFA;
   font-size: 0.8125rem;
   font-weight: 500;
   font-family: inherit;
@@ -1308,9 +1319,7 @@ async function submit(): Promise<void> {
   text-align: center;
   transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 
-  &--receipt:hover  { color: #0369A1; border-color: #0369A1; background: #E0F2FE; }
-  &--warranty:hover { color: #2F9E44; border-color: #2F9E44; background: #EBFBEE; }
-  &--manual:hover   { color: #7950F2; border-color: #C9BFFF; background: #F3F0FF; }
+  &:hover { color: var(--color-orange-text); border-color: var(--color-orange-border); background: var(--color-orange-tint); }
 
   &:focus-visible {
     outline: 2px solid var(--color-primary);
@@ -1332,31 +1341,21 @@ async function submit(): Promise<void> {
   align-items: center;
   justify-content: center;
   padding: var(--space-3) var(--space-2);
-  border: 1.5px solid #C9BFFF;
+  border: 1.5px solid var(--color-orange-border);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 600;
   font-family: inherit;
-  color: #7950F2;
-  background: #F3F0FF;
+  color: var(--color-orange-text);
+  background: var(--color-orange-tint);
   cursor: pointer;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 
-  &:hover { border-color: #7950F2; background: #EAE4FF; }
+  &:hover { border-color: var(--color-primary); background: var(--color-orange-hover); }
 
   &:focus-visible {
-    outline: 2px solid #7950F2;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
-  }
-
-  &--warranty {
-    border-color: #B2F2BB;
-    color: #2F9E44;
-    background: #EBFBEE;
-
-    &:hover { border-color: #2F9E44; background: #D3F9D8; }
-
-    &:focus-visible { outline-color: #2F9E44; }
   }
 }
 
@@ -1367,9 +1366,9 @@ async function submit(): Promise<void> {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1.5px solid #C9BFFF;
+  border: 1.5px solid var(--color-orange-border);
   border-radius: var(--radius-md);
-  background: #F3F0FF;
+  background: var(--color-orange-tint-deep);
 
   &__header {
     display: flex;
@@ -1380,21 +1379,22 @@ async function submit(): Promise<void> {
   &__title {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: #5C3DAB;
+    color: var(--color-orange-text);
   }
 
   &__count {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #7950F2;
+    color: var(--color-orange-text);
     background: #fff;
+    border: 1px solid var(--color-orange-border);
     padding: 2px var(--space-2);
     border-radius: var(--radius-full);
   }
 
   &__empty {
     font-size: 0.875rem;
-    color: #9775FA;
+    color: var(--color-orange-text);
     text-align: center;
     padding: var(--space-4) 0;
   }
@@ -1405,6 +1405,7 @@ async function submit(): Promise<void> {
     flex-wrap: wrap;
   }
 
+  // 다음 장 추가 — 가장 강한 액션 (solid orange)
   &__add-btn {
     flex: 1;
     display: inline-flex;
@@ -1417,55 +1418,57 @@ async function submit(): Promise<void> {
     font-weight: 700;
     font-family: inherit;
     color: #fff;
-    background: #7950F2;
+    background: var(--color-primary);
     cursor: pointer;
     text-align: center;
-    transition: background var(--transition-fast);
+    transition: opacity var(--transition-fast);
 
-    &:hover { background: #6741D9; }
+    &:hover { opacity: 0.88; }
 
     &:focus-within {
-      outline: 2px solid #7950F2;
+      outline: 2px solid var(--color-primary);
       outline-offset: 2px;
     }
   }
 
+  // 촬영 종료 — 보조 액션 (orange outline)
   &__end-btn {
     flex: 1;
     min-width: 80px;
     padding: var(--space-3) var(--space-2);
-    border: 1.5px solid #7950F2;
+    border: 1.5px solid var(--color-orange-border);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     font-weight: 600;
     font-family: inherit;
-    color: #7950F2;
+    color: var(--color-orange-text);
     background: #fff;
     cursor: pointer;
     transition: background var(--transition-fast), opacity var(--transition-fast);
 
-    &:hover:not(:disabled) { background: #F3F0FF; }
+    &:hover:not(:disabled) { background: var(--color-orange-tint); }
     &:disabled { opacity: 0.4; cursor: not-allowed; }
 
     &:focus-visible {
-      outline: 2px solid #7950F2;
+      outline: 2px solid var(--color-primary);
       outline-offset: 2px;
     }
   }
 
+  // 취소 — 가장 약한 액션 (text only)
   &__cancel-btn {
     padding: var(--space-3) var(--space-2);
-    border: 1.5px solid var(--color-border);
+    border: none;
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
     color: var(--color-sub);
     background: transparent;
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: color var(--transition-fast);
 
-    &:hover { background: var(--color-bg); }
+    &:hover { color: var(--color-text); }
 
     &:focus-visible {
       outline: 2px solid var(--color-sub);
@@ -1491,7 +1494,7 @@ async function submit(): Promise<void> {
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #DDD8FF;
+  background: var(--color-orange-hover);
 
   &__img {
     width: 100%;

@@ -21,6 +21,14 @@
   // Border
   --color-border:      #DEE2E6;
 
+  // Orange tint system (선택 탭, 촬영 세션 박스)
+  // — #BD4E00 텍스트 기준 명도비: 4.56:1(#FFF4EC), 4.58:1(#FFF8F4), 4.93:1(#fff) — WCAG AA 통과
+  --color-orange-text:       #BD4E00; // 어두운 주황 텍스트 (명도비 확보)
+  --color-orange-tint:       #FFF4EC; // 선택 탭 배경 / 연주황 배경
+  --color-orange-tint-deep:  #FFF8F4; // 촬영 세션 박스 배경 (더 연한 톤)
+  --color-orange-border:     #FFD0A8; // 주황 테두리 (선택 상태, 세션 박스)
+  --color-orange-hover:      #FFE8D0; // hover / 썸네일 플레이스홀더 배경
+
   // Semantic: error / success
   --color-error:       #E03131;
   --color-error-dark:  #C92A2A;

@@ -7,7 +7,8 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "clean:mcp": "rm -rf .claude/mcp-servers/multi-ai/node_modules"
   },
   "dependencies": {
     "@vite-pwa/nuxt": "^1.1.1",
