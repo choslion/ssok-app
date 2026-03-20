@@ -81,14 +81,16 @@
                 v-model="form.purchaseDate"
                 class="field__input"
                 :class="{ 'field__input--clearable': form.purchaseDate }"
-                type="date"
+                :type="form.purchaseDate || dateInputFocused ? 'date' : 'text'"
+                placeholder="연도-월-일"
                 min="1900-01-01"
                 :max="todayIso()"
                 required
                 aria-required="true"
                 :aria-invalid="!!errors.purchaseDate"
                 :aria-describedby="errors.purchaseDate ? 'f-date-error' : undefined"
-                @blur="clampPurchaseDate"
+                @focus="dateInputFocused = true"
+                @blur="dateInputFocused = false; clampPurchaseDate()"
               />
               <button v-if="form.purchaseDate" type="button" class="field__clear" aria-label="구매일 지우기" @click="form.purchaseDate = ''">✕</button>
             </div>
@@ -203,6 +205,7 @@ const allTopicChips = computed<string[]>(() => mergeChips(effectiveDefaultTopics
 const loading = ref(true)
 const found = ref(false)
 const submitting = ref(false)
+const dateInputFocused = ref(false)
 
 const form = reactive({
   title: '',

@@ -258,7 +258,7 @@
               class="field__input"
               :class="{ 'field__input--clearable': spaceCustom }"
               type="text"
-              placeholder="기타 (직접 입력)"
+              placeholder="직접 입력"
               maxlength="20"
               aria-label="보관 장소 직접 입력"
             />
@@ -283,14 +283,15 @@
               v-model="form.purchaseDate"
               class="field__input"
               :class="{ 'field__input--clearable': form.purchaseDate }"
-              type="date"
+              :type="form.purchaseDate || dateInputFocused ? 'date' : 'text'"
               placeholder="연도-월-일"
               min="1900-01-01"
               :max="todayIso()"
               aria-label="구매일 선택"
               :aria-invalid="!!errors.purchaseDate"
               :aria-describedby="errors.purchaseDate ? 'f-date-error' : undefined"
-              @blur="clampPurchaseDate"
+              @focus="dateInputFocused = true"
+              @blur="dateInputFocused = false; clampPurchaseDate()"
             />
             <button v-if="form.purchaseDate" type="button" class="field__clear" aria-label="구매일 지우기" @click="form.purchaseDate = ''">✕</button>
           </div>
@@ -583,6 +584,7 @@ const topicChipComputed = computed({
 const { pendingFiles, addFiles, removeFile, runOcr } = usePendingFiles()
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
+const dateInputFocused = ref(false)
 
 // ── 파일 그리드 프리뷰 ───────────────────────────────────────────────────────
 
