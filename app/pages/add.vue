@@ -997,11 +997,14 @@ async function submit(): Promise<void> {
     const id = crypto.randomUUID()
     const attachmentIds = pendingFiles.value.map(pf => pf.id)
 
+    const uniqueTypes = [...new Set(pendingFiles.value.map(pf => pf.docType))] as AttachmentDocType[]
+
     const item: Item = {
       id,
       title: form.title.trim(),
       type: derivedType.value,
       attachmentIds,
+      ...(uniqueTypes.length > 1 && { attachmentTypes: uniqueTypes }),
       ...(formTopic.value && { topic: formTopic.value }),
       ...(formSpace.value && { space: formSpace.value }),
       ...(form.purchaseDate && { purchaseDate: form.purchaseDate }),
