@@ -143,7 +143,17 @@
               <div class="file-section__header">
                 <span class="file-section__title">{{ TYPE_LABELS[group.type] }}</span>
                 <span class="file-section__count">{{ group.countLabel }}</span>
+                <span v-if="group.isSet" class="file-section__set-badge" aria-hidden="true">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                  </svg>
+                  세트
+                </span>
               </div>
+              <p v-if="group.isSet" class="file-section__set-note">
+                {{ group.files.length }}페이지를 하나의 {{ TYPE_LABELS[group.type] }}으로 저장합니다
+              </p>
               <div class="file-grid" role="list" :aria-label="TYPE_LABELS[group.type] + ' 파일 목록'">
                 <div
                   v-for="({ pf }, localIdx) in group.files.slice(0, group.files.length > 4 ? 3 : 4)"
@@ -174,6 +184,24 @@
                     :aria-label="pf.file.name + ' 삭제'"
                     @click="removeFromGrid(pf)"
                   >✕</button>
+                  <!-- OCR 버튼: 영수증 이미지일 때만 -->
+                  <button
+                    v-if="pf.docType === 'receipt' && pf.file.type.startsWith('image/')"
+                    type="button"
+                    class="file-grid__ocr-btn"
+                    :class="{
+                      'file-grid__ocr-btn--done': pf.ocrState === 'done',
+                      'file-grid__ocr-btn--error': pf.ocrState === 'error',
+                    }"
+                    :disabled="pf.ocrState === 'running'"
+                    :aria-label="pf.file.name + ' 영수증 정보 읽어오기'"
+                    @click.stop="runOcr(pf)"
+                  >
+                    <template v-if="pf.ocrState === 'running'">인식 중…</template>
+                    <template v-else-if="pf.ocrState === 'done'">✓ 완료</template>
+                    <template v-else-if="pf.ocrState === 'error'">재시도</template>
+                    <template v-else>읽어오기</template>
+                  </button>
                 </div>
                 <!-- +N 오버플로우 버튼: 5장 이상일 때 4번째 슬롯에 표시 -->
                 <button
@@ -220,8 +248,9 @@
               aria-required="true"
               :aria-invalid="!!errors.title"
               :aria-describedby="errors.title ? 'f-name-error' : undefined"
+              @input="titleEdited = true"
             />
-            <button v-if="form.title" type="button" class="field__clear" aria-label="제품명 지우기" @click="form.title = ''">✕</button>
+            <button v-if="form.title" type="button" class="field__clear" aria-label="제품명 지우기" @click="form.title = ''; titleEdited = true">✕</button>
           </div>
           <p v-if="errors.title" id="f-name-error" class="field__error" role="alert">{{ errors.title }}</p>
         </div>
@@ -524,6 +553,7 @@ import type { Item, Attachment, ItemDocType, AttachmentDocType } from '~~/shared
 import type { OcrResult } from '~/composables/useOcr.client'
 import { TYPE_LABELS, todayIso, clampPurchaseDateStr, warrantyEndDate, mergeChips } from '~~/shared/utils/format'
 import type { PendingFile } from '~/composables/usePendingFiles.client'
+import { extractPdfTitle, filenameHint } from '~/utils/pdfTitleExtract.client'
 
 // ── composables ───────────────────────────────────────────────────────────────
 
@@ -599,6 +629,51 @@ const { pendingFiles, addFiles, removeFile, runOcr } = usePendingFiles()
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 const dateInputFocused = ref(false)
+
+// ── 제목 자동생성 ─────────────────────────────────────────────────────────────
+// 우선순위: PDF 메타데이터 > 파일명 힌트 > 타입_날짜 fallback
+const titleEdited = ref(false)
+
+// PDF에서 비동기로 추출한 제목 힌트 (null = 아직 없거나 추출 실패)
+const pdfTitleHint = ref<string | null>(null)
+
+// PDF 파일이 추가/제거될 때 메타데이터 추출 시도
+watch(
+  () => pendingFiles.value.filter(pf => pf.file.type === 'application/pdf').map(pf => pf.id),
+  async (ids) => {
+    if (!ids.length) { pdfTitleHint.value = null; return }
+    const firstPdf = pendingFiles.value.find(pf => pf.file.type === 'application/pdf')
+    if (!firstPdf) return
+    pdfTitleHint.value = await extractPdfTitle(firstPdf.file)
+  },
+)
+
+const autoTitle = computed(() => {
+  if (!pendingFiles.value.length) return ''
+
+  // 1순위: PDF 메타데이터 제목
+  if (pdfTitleHint.value) return pdfTitleHint.value
+
+  // 2순위: 첫 번째 PDF 파일명 힌트
+  const firstPdf = pendingFiles.value.find(pf => pf.file.type === 'application/pdf')
+  if (firstPdf) {
+    const hint = filenameHint(firstPdf.file.name)
+    if (hint) return hint
+  }
+
+  // 3순위: 타입_날짜 fallback (T1)
+  const LABELS: Record<ItemDocType, string> = { receipt: '영수증', warranty: '보증서', manual: '설명서' }
+  const today = new Date()
+  const yy = String(today.getFullYear()).slice(2)
+  const mm = String(today.getMonth() + 1).padStart(2, '0')
+  const dd = String(today.getDate()).padStart(2, '0')
+  return `${LABELS[derivedType.value]}_${yy}${mm}${dd}`
+})
+
+// titleEdited가 false인 동안은 autoTitle과 form.title을 동기화
+watchEffect(() => {
+  if (!titleEdited.value) form.title = autoTitle.value
+})
 
 // ── 파일 그리드 프리뷰 ───────────────────────────────────────────────────────
 
@@ -1707,7 +1782,25 @@ async function submit(): Promise<void> {
     line-height: 1.6;
   }
 
+  &__set-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-sub);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    background: #F1F3F5;
+    line-height: 1.6;
+  }
 
+  &__set-note {
+    font-size: 0.75rem;
+    color: var(--color-sub);
+    margin-bottom: var(--space-2);
+    padding-left: 1px;
+  }
 }
 
 // ── 파일 썸네일 그리드 ────────────────────────────────────────────────────────
@@ -1720,6 +1813,52 @@ async function submit(): Promise<void> {
 
   &__slot {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__ocr-btn {
+    width: 100%;
+    padding: 3px 4px;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: 1px solid var(--color-orange-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-orange-text);
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+
+    &:hover:not(:disabled) {
+      background: var(--color-orange-tint);
+      border-color: var(--color-primary);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &--done {
+      border-color: #ADB5BD;
+      color: var(--color-sub);
+      background: #F8F9FA;
+    }
+
+    &--error {
+      border-color: #FFA8A8;
+      color: #C92A2A;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 1px;
+    }
   }
 
   &__item {
