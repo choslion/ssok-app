@@ -196,7 +196,14 @@ const typeChipModel = computed({
 
 const types = computed<ItemDocType[]>(() => {
   const set = new Set<ItemDocType>()
-  for (const item of items.value) set.add(item.type)
+  for (const item of items.value) {
+    // 멀티타입 아이템은 attachmentTypes의 모든 타입을 탭에 포함
+    if (item.attachmentTypes && item.attachmentTypes.length > 1) {
+      for (const t of item.attachmentTypes) set.add(t)
+    } else {
+      set.add(item.type)
+    }
+  }
   return [...set].sort()
 })
 
@@ -204,7 +211,11 @@ const filtered = computed<Item[]>(() => {
   const q = search.value.trim().toLowerCase()
 
   let result = items.value.filter(item => {
-    if (activeType.value && item.type !== activeType.value) return false
+    if (activeType.value) {
+      const hasType = item.type === activeType.value ||
+        (item.attachmentTypes && item.attachmentTypes.includes(activeType.value))
+      if (!hasType) return false
+    }
     if (q) {
       const inTitle = item.title.toLowerCase().includes(q)
       const inStore = (item.store ?? '').toLowerCase().includes(q)
