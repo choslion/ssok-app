@@ -51,17 +51,20 @@
 
         <!-- PDF -->
         <div v-else-if="slide.kind === 'pdf'" class="att-swiper__pdf-wrap">
-          <iframe
-            :src="slide.url"
-            class="att-swiper__pdf"
-            :title="slide.label"
-          />
+          <div class="att-swiper__pdf-placeholder">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 13h6M9 17h4" stroke="#868E96" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="att-swiper__pdf-label">{{ slide.label }}</span>
+          </div>
           <a
             :href="slide.url"
             target="_blank"
             rel="noopener"
             class="att-swiper__pdf-link"
-          >새 탭에서 열기</a>
+          >PDF 열기</a>
         </div>
       </div>
     </div>
@@ -551,27 +554,40 @@ function onTouchEnd(e: TouchEvent): void {
 .att-swiper__pdf-wrap {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
 }
 
-.att-swiper__pdf {
-  width: 100%;
-  height: 70vh;
-  min-height: 480px;
+.att-swiper__pdf-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 280px;
+}
 
-  @media (max-width: 480px) {
-    height: 65vh;
-    min-height: 400px;
-  }
+.att-swiper__pdf-label {
+  font-size: 0.875rem;
+  color: var(--color-sub);
+  text-align: center;
 }
 
 .att-swiper__pdf-link {
-  font-size: 0.8125rem;
-  color: var(--color-primary);
-  align-self: flex-start;
-  &:hover { text-decoration: underline; }
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  &:hover { opacity: 0.9; }
 }
 
 // ── 화살표 버튼 ───────────────────────────────────────────────
