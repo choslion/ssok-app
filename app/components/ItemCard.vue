@@ -6,7 +6,24 @@
       <slot name="badge">
         <!-- 멀티타입 배지 -->
         <div v-if="item.attachmentTypes && item.attachmentTypes.length > 1" class="item-card__multi-badges">
-          <span v-for="t in item.attachmentTypes" :key="t" class="item-card__badge item-card__badge--small">{{ MULTI_TYPE_LABELS[t] }}</span>
+          <span v-for="t in item.attachmentTypes" :key="t" class="item-card__badge item-card__badge--small">
+            <!-- 영수증 아이콘 -->
+            <svg v-if="t === 'receipt'" width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <!-- 보증서 아이콘 -->
+            <svg v-else-if="t === 'warranty'" width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+            <!-- 설명서 아이콘 -->
+            <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+            {{ MULTI_TYPE_LABELS[t] }}
+          </span>
         </div>
         <!-- 단일 배지 -->
         <span v-else class="item-card__badge">
@@ -117,7 +134,6 @@ const MULTI_TYPE_LABELS: Record<AttachmentDocType, string> = {
 
   &__multi-badges {
     display: flex;
-    flex-direction: column;
     align-items: flex-end;
     gap: 3px;
     flex-shrink: 0;
