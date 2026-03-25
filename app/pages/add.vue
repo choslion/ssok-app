@@ -145,26 +145,36 @@
                 <span class="file-section__count">{{ group.countLabel }}</span>
               </div>
               <div class="file-grid" role="list" :aria-label="TYPE_LABELS[group.type] + ' 파일 목록'">
-                <button
+                <div
                   v-for="({ pf }, localIdx) in group.files.slice(0, group.files.length > 4 ? 3 : 4)"
                   :key="pf.id"
-                  type="button"
                   role="listitem"
-                  class="file-grid__item"
-                  :aria-label="pf.file.name + ' 미리보기'"
-                  @click="openPreview(group.type, localIdx, $event.currentTarget)"
+                  class="file-grid__slot"
                 >
-                  <img
-                    v-if="thumbnailUrls.get(pf.id)"
-                    :src="thumbnailUrls.get(pf.id)"
-                    :alt="pf.file.name"
-                    class="file-grid__thumb"
-                  />
-                  <div v-else class="file-grid__pdf">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="file-grid__pdf-name">{{ pf.file.name }}</span>
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    class="file-grid__item"
+                    :aria-label="pf.file.name + ' 미리보기'"
+                    @click="openPreview(group.type, localIdx, $event.currentTarget)"
+                  >
+                    <img
+                      v-if="thumbnailUrls.get(pf.id)"
+                      :src="thumbnailUrls.get(pf.id)"
+                      :alt="pf.file.name"
+                      class="file-grid__thumb"
+                    />
+                    <div v-else class="file-grid__pdf">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="#868E96" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <span class="file-grid__pdf-name">{{ pf.file.name }}</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="file-grid__remove"
+                    :aria-label="pf.file.name + ' 삭제'"
+                    @click="removeFromGrid(pf)"
+                  >✕</button>
+                </div>
                 <!-- +N 오버플로우 버튼: 5장 이상일 때 4번째 슬롯에 표시 -->
                 <button
                   v-if="group.files.length > 4"
@@ -889,6 +899,14 @@ function removeCaptureFile(relativeIdx: number): void {
   const pf = pendingFiles.value[absoluteIdx]
   if (pf) revokeThumbnail(pf.id)
   removeFile(absoluteIdx)
+}
+
+function removeFromGrid(pf: PendingFile): void {
+  const idx = pendingFiles.value.findIndex(p => p.id === pf.id)
+  if (idx !== -1) {
+    revokeThumbnail(pf.id)
+    removeFile(idx)
+  }
 }
 
 function revokeThumbnail(id: string): void {
@@ -1700,8 +1718,13 @@ async function submit(): Promise<void> {
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 
-  &__item {
+  &__slot {
     position: relative;
+  }
+
+  &__item {
+    display: block;
+    width: 100%;
     aspect-ratio: 1;
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -1711,6 +1734,27 @@ async function submit(): Promise<void> {
 
     &:hover { opacity: 0.85; }
     &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  }
+
+  &__remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    z-index: 1;
+
+    &:hover { background: #C92A2A; }
+    &:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
   }
 
   &__thumb {
