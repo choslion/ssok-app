@@ -1,10 +1,9 @@
 import { toRaw } from 'vue'
 import type { Item } from '~~/shared/types/ssok'
 
-// Global list of items — metadata only, no Blobs.
-const items = useState<Item[]>('items', () => [])
-
 export const useItems = () => {
+  // useState는 동일 key로 항상 동일 상태를 반환하므로 전역 싱글턴처럼 동작
+  const items = useState<Item[]>('items', () => [])
   // ── Read ──────────────────────────────────────────────────────────────────
 
   const loadItems = async (): Promise<void> => {
