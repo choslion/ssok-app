@@ -1,5 +1,6 @@
 import type { AttachmentDocType } from '~~/shared/types/ssok'
 import type { OcrResult, OcrProgress } from '~/composables/useOcr.client'
+import { compressImage } from '~/utils/compressImage.client'
 
 const DOC_TYPE_PREFIX: Record<AttachmentDocType, string> = {
   receipt:  '영수증',
@@ -30,16 +31,17 @@ export function usePendingFiles() {
 
   const pendingFiles = ref<PendingFile[]>([])
 
-  function addFiles(files: File[], docType: AttachmentDocType, fromCamera = false): void {
+  async function addFiles(files: File[], docType: AttachmentDocType, fromCamera = false): Promise<void> {
     for (const file of files) {
-      let finalFile = file
+      let renamed = file
       if (fromCamera) {
         const existing = pendingFiles.value.filter(pf => pf.docType === docType).length
-        finalFile = renameForCamera(file, docType, existing + 1)
+        renamed = renameForCamera(file, docType, existing + 1)
       }
+      const compressed = await compressImage(renamed)
       pendingFiles.value.push({
         id: crypto.randomUUID(),
-        file: finalFile,
+        file: compressed,
         docType,
         ocrState: 'idle',
         ocrProgress: 0,

@@ -244,6 +244,7 @@
 <script setup lang="ts">
 import type { Item, Attachment, AttachmentDocType } from '~~/shared/types/ssok'
 import { formatDate, formatAmount } from '~~/shared/utils/format'
+import { compressImage } from '~/utils/compressImage.client'
 
 // ── 라우트 파라미터 ───────────────────────────────────────────────────────────
 
@@ -408,19 +409,20 @@ async function appendPages(e: Event): Promise<void> {
   try {
     const newIds: string[] = []
     for (const file of files) {
+      const compressed = await compressImage(file)
       const id = crypto.randomUUID()
       const att: Attachment = {
         id,
         itemId: item.value.id,
         kind: 'image',
         type: activeTypeTab.value,
-        mime: file.type,
-        blob: file,
+        mime: compressed.type,
+        blob: compressed,
         createdAt: new Date().toISOString(),
       }
       await saveAttachment(att)
       newIds.push(id)
-      const url = URL.createObjectURL(file)
+      const url = URL.createObjectURL(compressed)
       objectUrls.value.set(id, url)
       createdUrls.set(id, url)
     }
