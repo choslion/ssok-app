@@ -54,11 +54,13 @@ import type { Item } from '~~/shared/types/ssok'
 import { formatDate } from '~~/shared/utils/format'
 
 const { items, loadItems } = useItems()
+const { markSeen } = useExpiryNotice()
 const loading = ref(true)
 const cardListRef = ref<HTMLElement | null>(null)
 const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, ':scope > .card-list__item')
 
 onMounted(async () => {
+  markSeen()
   await loadItems()
   loading.value = false
 

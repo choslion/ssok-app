@@ -1,6 +1,21 @@
 <template>
   <div class="list-page">
 
+    <!-- 만료 임박 알림 배너 -->
+    <div v-if="hasUnread" class="expiry-notice" role="alert" aria-live="polite">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" class="expiry-notice__icon">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="expiry-notice__text">보증 만료 임박 <strong>{{ expiringCount }}건</strong></span>
+      <NuxtLink to="/expiring" class="expiry-notice__link" @click="markSeen">확인하기</NuxtLink>
+      <button type="button" class="expiry-notice__close" aria-label="알림 닫기" @click="markSeen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- 검색 / 정렬 툴바 -->
     <div class="toolbar">
       <div class="toolbar__search-wrap">
@@ -88,6 +103,7 @@ import { TYPE_LABELS, formatDate, formatAmount, warrantyStatus } from '~~/shared
 
 // loadItems()는 items store 메타데이터만 읽음 — Blob 로드 없음
 const { items, loadItems } = useItems()
+const { expiringCount, hasUnread, markSeen } = useExpiryNotice()
 const loading = ref(true)
 const cardListRef = ref<HTMLElement | null>(null)
 const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, ':scope > .card-list__item')
@@ -220,6 +236,45 @@ function resetFilter(): void {
 }
 
 // ── 툴바 ──────────────────────────────────────────────────────────────────────
+
+.expiry-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+  background: var(--color-orange-tint);
+  border: 1px solid var(--color-orange-border);
+  border-radius: var(--radius-md);
+  color: var(--color-orange-text);
+
+  &__icon { flex-shrink: 0; }
+
+  &__text {
+    flex: 1;
+    font-size: 0.8125rem;
+    strong { font-weight: 700; }
+  }
+
+  &__link {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--color-orange-text);
+    text-decoration: underline;
+    white-space: nowrap;
+    &:hover { opacity: 0.8; }
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    color: var(--color-orange-text);
+    opacity: 0.7;
+    &:hover { opacity: 1; }
+  }
+}
 
 .toolbar {
   display: flex;

@@ -62,10 +62,13 @@
         :class="{ 'tab-bar__tab--active': route.path === '/expiring' }"
         aria-label="보증 알림"
       >
-        <svg class="tab-bar__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
-          <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <span class="tab-bar__icon-wrap">
+          <svg class="tab-bar__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span v-if="hasUnread" class="tab-bar__dot" aria-label="확인하지 않은 만료 알림" />
+        </span>
         <span class="tab-bar__label">보증 알림</span>
       </NuxtLink>
 
@@ -87,6 +90,12 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { hasUnread, markSeen } = useExpiryNotice()
+
+// /expiring 방문 시 빨간 점 제거
+watch(() => route.path, path => {
+  if (path === '/expiring') markSeen()
+}, { immediate: true })
 </script>
 
 <style scoped lang="scss">
@@ -200,6 +209,23 @@ const route = useRoute()
     font-weight: 600;
     line-height: 1;
     letter-spacing: -0.01em;
+  }
+
+  &__icon-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  &__dot {
+    position: absolute;
+    top: -2px;
+    right: -5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #E03131;
+    border: 1.5px solid var(--color-surface);
+    pointer-events: none;
   }
 
   &__add-btn {
