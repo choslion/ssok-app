@@ -136,7 +136,7 @@ watch(() => route.path, path => {
     font-size: 0.75rem;
     color: var(--color-sub);
 
-    @media (max-width: 360px) {
+    @media (max-width: 300px) {
       display: none;
     }
   }
