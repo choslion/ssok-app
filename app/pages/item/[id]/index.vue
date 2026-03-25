@@ -65,12 +65,25 @@
       <!-- 첨부 파일 섹션 -->
       <section class="attachments">
         <h2 class="attachments__heading">
-          <template v-if="availableTabs.length <= 1 && isManualPageSet">{{ activeTypeTab === 'warranty' ? '보증서' : '설명서' }} ({{ activeTabSwiperSlides.length }}페이지)</template>
+          <template v-if="availableTabs.length <= 1 && isManualPageSet && (activeTypeTab === 'manual' || activeTypeTab === 'warranty')">
+            <svg class="attachments__set-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+            {{ activeTypeTab === 'warranty' ? '보증서' : '설명서' }}
+            <span class="attachments__page-badge">{{ activeTabSwiperSlides.length }}페이지</span>
+          </template>
           <template v-else>첨부 파일</template>
         </h2>
 
-        <!-- 탭 (멀티타입 아이템일 때만) -->
-        <div v-if="availableTabs.length > 1" ref="tabsEl" role="tablist" class="att-tabs" aria-label="문서 종류 선택">
+        <!-- 탭 (첨부파일이 있을 때: 멀티타입이거나 추가 가능한 타입이 있으면 표시) -->
+        <div
+          v-if="availableTabs.length > 0 && (availableTabs.length > 1 || missingDocTypes.length > 0)"
+          ref="tabsEl"
+          role="tablist"
+          class="att-tabs"
+          aria-label="문서 종류 선택"
+        >
           <button
             v-for="tab in availableTabs"
             :key="tab"
@@ -80,6 +93,24 @@
             :class="['att-tab', { 'att-tab--active': activeTypeTab === tab }]"
             @click="activeTypeTab = tab"
           >{{ TYPE_LABELS[tab] }}<span class="att-tab__count">{{ typeGroups[tab]!.length }}</span></button>
+          <!-- 고스트 탭: 아직 없는 문서 타입 추가 -->
+          <label
+            v-for="t in missingDocTypes"
+            :key="'ghost-' + t"
+            class="att-tab att-tab--ghost"
+            :class="{ 'att-tab--ghost--loading': appendingDoc === t }"
+            :aria-label="TYPE_LABELS[t] + ' 추가'"
+          >
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              class="sr-only"
+              :disabled="!!appendingDoc"
+              @change="handleAddDoc(t, $event)"
+            />
+            <span class="att-tab__ghost-plus" aria-hidden="true">+</span>{{ appendingDoc === t ? '추가 중…' : TYPE_LABELS[t] }}
+          </label>
           <div class="att-tabs__indicator" :style="indicatorStyle" aria-hidden="true"></div>
         </div>
 
@@ -92,9 +123,7 @@
           <AttachmentSwiper
             v-model="activeCurrentPage"
             :slides="activeTabSwiperSlides"
-            :aria-label="isManualPageSet
-              ? (activeTypeTab === 'warranty' ? '보증서 페이지 뷰어' : '설명서 페이지 뷰어')
-              : '첨부 파일 뷰어'"
+            :aria-label="activeTypeTab === 'warranty' ? '보증서 페이지 뷰어' : activeTypeTab === 'manual' ? '설명서 페이지 뷰어' : '첨부 파일 뷰어'"
           >
             <template #controls="{ slide, active }">
               <template v-if="active && slide.kind === 'image'">
@@ -144,6 +173,7 @@
             <span>{{ appendingPages ? '추가 중…' : '+ 페이지 추가' }}</span>
           </label>
         </template>
+
       </section>
 
     </template>
@@ -386,17 +416,73 @@ const activeTabSwiperSlides = computed(() =>
   })),
 )
 
-// 현재 탭이 설명서/보증서이고 2개 이상이면 페이지 세트 모드
+// 현재 탭에 첨부파일이 1개 이상이면 페이지 추가 가능
 const isManualPageSet = computed(() =>
-  (activeTypeTab.value === 'manual' || activeTypeTab.value === 'warranty') &&
-  (typeGroups.value[activeTypeTab.value]?.length ?? 0) > 1,
+  (typeGroups.value[activeTypeTab.value]?.length ?? 0) >= 1,
+)
+
+// 아이템에 아직 없는 문서 타입 (관련 문서 추가 섹션용)
+const missingDocTypes = computed<AttachmentDocType[]>(() =>
+  TAB_ORDER.filter(t => !(typeGroups.value[t]?.length)),
 )
 
 function attachmentById(id: string): Attachment | undefined {
   return orderedAttachments.value.find(a => a.id === id)
 }
 
-// 설명서 페이지 추가: 이미지 파일을 선택해 기존 세트에 덧붙임
+// ── 문서 추가 (새 타입) ───────────────────────────────────────────────────────
+const appendingDoc = ref<AttachmentDocType | null>(null)
+
+async function handleAddDoc(type: AttachmentDocType, e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (!files.length || !item.value) return
+
+  appendingDoc.value = type
+  try {
+    const newIds: string[] = []
+    for (const file of files) {
+      const isImage = file.type.startsWith('image/')
+      const blob = isImage ? await compressImage(file) : file
+      const id = crypto.randomUUID()
+      const att: Attachment = {
+        id,
+        itemId: item.value.id,
+        kind: isImage ? 'image' : 'pdf',
+        type,
+        mime: blob.type,
+        blob,
+        createdAt: new Date().toISOString(),
+      }
+      await saveAttachment(att)
+      newIds.push(id)
+      const url = URL.createObjectURL(blob)
+      objectUrls.value.set(id, url)
+      createdUrls.set(id, url)
+    }
+
+    const updatedIds = [...item.value.attachmentIds, ...newIds]
+    // availableTabs(기존 타입) + 새 타입 → attachmentTypes 갱신
+    const allTypes = TAB_ORDER.filter(t => availableTabs.value.includes(t) || t === type)
+    const updatedTypes = allTypes.length > 1 ? (allTypes as AttachmentDocType[]) : undefined
+
+    await updateItem(item.value.id, {
+      attachmentIds: updatedIds,
+      ...(updatedTypes ? { attachmentTypes: updatedTypes } : {}),
+    })
+    item.value = {
+      ...item.value,
+      attachmentIds: updatedIds,
+      ...(updatedTypes ? { attachmentTypes: updatedTypes } : {}),
+    }
+    activeTypeTab.value = type
+  } finally {
+    appendingDoc.value = null
+  }
+}
+
+// ── 설명서 페이지 추가: 이미지 파일을 선택해 기존 세트에 덧붙임 ───────────────
 const appendingPages = ref(false)
 
 async function appendPages(e: Event): Promise<void> {
@@ -954,10 +1040,29 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
   box-shadow: var(--shadow-card);
 
   &__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     font-size: 0.9375rem;
     font-weight: 700;
     color: var(--color-text);
     margin-bottom: var(--space-4);
+  }
+
+  &__set-icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+  }
+
+  &__page-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-orange-text);
+    background: var(--color-orange-tint);
+    border: 1px solid var(--color-orange-border);
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    line-height: 1.6;
   }
 
   &__empty {
@@ -1062,6 +1167,27 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
       color: #fff;
     }
   }
+
+  &--ghost {
+    color: var(--color-sub);
+    cursor: pointer;
+
+    &:hover:not(.att-tab--ghost--loading) {
+      color: var(--color-orange-text);
+    }
+
+    &--loading {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__ghost-plus {
+    font-size: 0.75rem;
+    font-weight: 400;
+    margin-right: 2px;
+    opacity: 0.7;
+  }
 }
 
 // ── 설명서 페이지 네비게이터 → AttachmentSwiper 컴포넌트로 이전 ───────────────
@@ -1096,6 +1222,7 @@ const TYPE_LABELS: Record<AttachmentDocType, string> = {
     outline-offset: 2px;
   }
 }
+
 
 .sr-only {
   position: absolute;
