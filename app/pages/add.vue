@@ -41,10 +41,12 @@
           <div v-if="capturePages.length > 0" class="capture-grid" role="list" aria-label="촬영된 설명서 페이지 목록">
             <div v-for="(pf, idx) in capturePages" :key="pf.id" class="capture-thumb" role="listitem">
               <img
+                v-if="thumbnailUrls.get(pf.id)"
                 :src="thumbnailUrls.get(pf.id)"
                 :alt="(idx + 1) + '번째 페이지'"
                 class="capture-thumb__img"
               />
+              <div v-else class="capture-thumb__loading" aria-hidden="true" />
               <span class="capture-thumb__num" aria-hidden="true">{{ idx + 1 }}</span>
               <button
                 type="button"
@@ -437,7 +439,7 @@
             class="fp__chip"
             :class="['fp__chip--' + opt.value, { 'fp__chip--active': currentPreviewPf.docType === opt.value }]"
             :aria-pressed="currentPreviewPf.docType === opt.value"
-            @click="currentPreviewPf.docType = (opt.value as AttachmentDocType)"
+            @click="currentPreviewPf && changePreviewDocType(currentPreviewPf, opt.value as AttachmentDocType)"
           >{{ opt.label }}</button>
         </div>
 
@@ -631,6 +633,14 @@ function _unlockScroll(): void {
   document.body.style.top = ''
   document.body.style.width = ''
   window.scrollTo({ top: _fpScrollY, behavior: 'instant' as ScrollBehavior })
+}
+
+function changePreviewDocType(pf: PendingFile, newType: AttachmentDocType): void {
+  pf.docType = newType
+  previewGroupType.value = newType
+  previewIdx.value = pendingFiles.value
+    .filter(p => p.docType === newType)
+    .findIndex(p => p.id === pf.id)
 }
 
 function openPreview(groupType: AttachmentDocType, localIdx: number, trigger?: EventTarget | null): void {
@@ -1563,6 +1573,12 @@ async function submit(): Promise<void> {
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  &__loading {
+    width: 100%;
+    height: 100%;
+    background: var(--color-orange-hover);
   }
 
   &__num {
