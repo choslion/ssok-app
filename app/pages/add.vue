@@ -195,7 +195,7 @@
                     }"
                     :disabled="pf.ocrState === 'running'"
                     :aria-label="pf.file.name + ' 영수증 정보 읽어오기'"
-                    @click.stop="runOcr(pf)"
+                    @click.stop="runOcrFromGrid(pf)"
                   >
                     <template v-if="pf.ocrState === 'running'">인식 중…</template>
                     <template v-else-if="pf.ocrState === 'done'">✓ 완료</template>
@@ -221,6 +221,50 @@
                   <div class="file-grid__overflow-badge">+{{ group.files.length - 3 }}</div>
                 </button>
               </div>
+
+              <!-- OCR 인라인 결과 패널 (영수증 섹션 전용) -->
+              <template v-if="group.type === 'receipt' && activeOcrPf && group.files.some(({ pf }) => pf.id === activeOcrPf!.id)">
+                <!-- 진행 중 -->
+                <div v-if="activeOcrPf.ocrState === 'running'" class="ocr-panel ocr-panel--loading">
+                  <div class="ocr-progress-bar">
+                    <div class="ocr-progress-bar__fill" :style="{ width: activeOcrPf.ocrProgress + '%' }"></div>
+                  </div>
+                  <p class="ocr-panel__status">{{ activeOcrPf.ocrStatus || 'OCR 준비 중…' }} {{ activeOcrPf.ocrProgress }}%</p>
+                  <p class="ocr-panel__note">처음 실행 시 언어 데이터를 다운로드하므로 시간이 걸릴 수 있습니다.</p>
+                </div>
+                <!-- 오류 -->
+                <p v-else-if="activeOcrPf.ocrState === 'error'" class="ocr-error" role="alert">{{ activeOcrPf.ocrError }}</p>
+                <!-- 결과 -->
+                <div v-else-if="activeOcrPf.ocrState === 'done' && activeOcrPf.ocrResult" class="ocr-panel ocr-panel--result">
+                  <p class="ocr-panel__title">추출 결과 — 적용할 항목을 선택하세요</p>
+                  <p v-if="isLowConfidenceResult(activeOcrPf.ocrResult)" class="ocr-panel__warning" role="note">인식 결과가 불확실해요. 직접 확인 후 적용해 주세요.</p>
+                  <div v-if="activeOcrPf.ocrResult.merchant" class="ocr-candidate">
+                    <div class="ocr-candidate__body">
+                      <span class="ocr-candidate__label">상호</span>
+                      <span class="ocr-candidate__value">{{ activeOcrPf.ocrResult.merchant.value }}</span>
+                      <span class="ocr-candidate__conf">{{ confidencePct(activeOcrPf.ocrResult.merchant.confidence) }}</span>
+                    </div>
+                    <button type="button" class="ocr-apply-btn" @click="applyMerchant(activeOcrPf!)">구매처에 적용</button>
+                  </div>
+                  <div v-if="activeOcrPf.ocrResult.date" class="ocr-candidate">
+                    <div class="ocr-candidate__body">
+                      <span class="ocr-candidate__label">날짜</span>
+                      <span class="ocr-candidate__value">{{ activeOcrPf.ocrResult.date.value }}</span>
+                      <span class="ocr-candidate__conf">{{ confidencePct(activeOcrPf.ocrResult.date.confidence) }}</span>
+                    </div>
+                    <button type="button" class="ocr-apply-btn" @click="applyDate(activeOcrPf!)">구매일에 적용</button>
+                  </div>
+                  <div v-if="activeOcrPf.ocrResult.amount" class="ocr-candidate">
+                    <div class="ocr-candidate__body">
+                      <span class="ocr-candidate__label">금액</span>
+                      <span class="ocr-candidate__value">{{ activeOcrPf.ocrResult.amount.value }}</span>
+                      <span class="ocr-candidate__conf">{{ confidencePct(activeOcrPf.ocrResult.amount.confidence) }}</span>
+                    </div>
+                    <button type="button" class="ocr-apply-btn" @click="applyAmount(activeOcrPf!)">금액에 적용</button>
+                  </div>
+                  <p v-if="!activeOcrPf.ocrResult.merchant && !activeOcrPf.ocrResult.date && !activeOcrPf.ocrResult.amount" class="ocr-panel__empty">텍스트를 인식했지만 상호·날짜·금액을 찾지 못했습니다. 직접 입력해 주세요.</p>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -626,6 +670,16 @@ const topicChipComputed = computed({
 })
 
 const { pendingFiles, addFiles, removeFile, runOcr } = usePendingFiles()
+
+// OCR 인라인 패널: 가장 최근에 실행한 파일 추적
+const activeOcrPfId = ref<string | null>(null)
+const activeOcrPf = computed(() =>
+  activeOcrPfId.value ? pendingFiles.value.find(pf => pf.id === activeOcrPfId.value) : undefined,
+)
+function runOcrFromGrid(pf: PendingFile): void {
+  activeOcrPfId.value = pf.id
+  runOcr(pf)
+}
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 const dateInputFocused = ref(false)
@@ -2129,6 +2183,7 @@ async function submit(): Promise<void> {
 }
 
 
+
 // ── OCR 패널 ──────────────────────────────────────────────────────────────────
 
 .ocr-panel {
@@ -2272,6 +2327,7 @@ async function submit(): Promise<void> {
     outline: none;
     box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.25);
   }
+
 }
 
 // ── submit error ──────────────────────────────────────────────────────────────
