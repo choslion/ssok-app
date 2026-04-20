@@ -74,6 +74,7 @@
               @click="dismissCloudPrompt"
             >괜찮아요, 로컬에 보관할게요</button>
           </div>
+          <p v-if="cloudShareError" class="cloud-prompt__error" role="alert">{{ cloudShareError }}</p>
         </div>
 
         <p id="export-desc" class="settings-card__hint">
@@ -325,7 +326,7 @@ function trapFocus(e: KeyboardEvent): void {
 
 const {
   isExporting, exportProgress, exportStep, exportError, exportBackup,
-  cloudPrompt, shareToCloud, dismissCloudPrompt,
+  cloudPrompt, cloudShareError, shareToCloud, dismissCloudPrompt,
   isImporting, importProgress, importStep, importError, importSuccess,
   importConfirming, startImportConfirm, cancelImport, importBackup,
   lastBackupAt, lastBackupLabel,
@@ -575,6 +576,12 @@ function onFileSelected(e: Event): void {
 
   &:hover { background: var(--color-orange-hover); }
   &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+}
+
+.cloud-prompt__error {
+  margin-top: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--color-error-dark, #c92a2a);
 }
 
 .cloud-prompt__dismiss-btn {
