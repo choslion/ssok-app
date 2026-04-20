@@ -58,7 +58,6 @@ const importConfirming = ref(false)
 
 // Phase B: 클라우드 저장 제안용 — export 완료 후 blob 보존
 const cloudPrompt = ref<{ blob: Blob; filename: string } | null>(null)
-const cloudShareError = ref<string | null>(null)
 
 // 마지막 백업 시각 — IndexedDB settings 스토어에서 로드
 const lastBackupAt = ref<string | null>(null)
@@ -190,23 +189,6 @@ function dismissCloudPrompt(): void {
   cloudPrompt.value = null
 }
 
-async function shareToCloud(): Promise<void> {
-  if (!cloudPrompt.value) return
-  cloudShareError.value = null
-  const { blob, filename } = cloudPrompt.value
-  const file = new File([blob], filename, { type: 'application/zip' })
-  try {
-    await navigator.share({
-      title: 'SSOK 백업 파일',
-      text: '클라우드에 보관해 두세요.',
-      files: [file],
-    })
-  } catch (err) {
-    // AbortError = 유저 취소 — 오류 아님
-    if (err instanceof Error && err.name === 'AbortError') return
-    cloudShareError.value = '공유를 시작하지 못했어요. 파일 앱에서 직접 업로드해 주세요.'
-  }
-}
 
 // ── 가져오기 (복원) ───────────────────────────────────────────────────────────
 
@@ -440,8 +422,6 @@ export const useBackup = () => {
     exportBackup,
     // Phase B: 클라우드 저장 제안
     cloudPrompt:        readonly(cloudPrompt),
-    cloudShareError:    readonly(cloudShareError),
-    shareToCloud,
     dismissCloudPrompt,
     // 가져오기
     isImporting:      readonly(isImporting),

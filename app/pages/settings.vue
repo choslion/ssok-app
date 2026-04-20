@@ -50,31 +50,15 @@
 
         <p v-if="exportError" class="op-message op-message--error" role="alert">{{ exportError }}</p>
 
-        <!-- Phase B: 클라우드 저장 제안 -->
-        <div v-if="cloudPrompt && canShareFiles" class="cloud-prompt" role="status" aria-live="polite">
-          <p class="cloud-prompt__msg">파일이 저장됐어요. 클라우드에도 보관할까요?</p>
-          <div class="cloud-prompt__actions">
-            <button
-              v-if="canShareFiles"
-              type="button"
-              class="cloud-prompt__share-btn"
-              @click="shareToCloud"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M6 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M18 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              클라우드에 저장
-            </button>
-            <button
-              type="button"
-              class="cloud-prompt__dismiss-btn"
-              @click="dismissCloudPrompt"
-            >괜찮아요, 로컬에 보관할게요</button>
-          </div>
-          <p v-if="cloudShareError" class="cloud-prompt__error" role="alert">{{ cloudShareError }}</p>
+        <!-- Phase B: 백업 완료 후 클라우드 보관 안내 -->
+        <div v-if="cloudPrompt" class="cloud-prompt" role="status" aria-live="polite">
+          <p class="cloud-prompt__msg">파일이 저장됐어요.</p>
+          <p class="cloud-prompt__hint">파일 앱에서 Google Drive나 iCloud Drive로 옮겨 보관하세요.</p>
+          <button
+            type="button"
+            class="cloud-prompt__dismiss-btn"
+            @click="dismissCloudPrompt"
+          >확인</button>
         </div>
 
         <p id="export-desc" class="settings-card__hint">
@@ -209,6 +193,7 @@
         <div class="settings-info-list__row">
           <dt>데이터 저장</dt>
           <dd>이 기기 (IndexedDB)</dd>
+          
         </div>
       </dl>
     </section>
@@ -326,22 +311,12 @@ function trapFocus(e: KeyboardEvent): void {
 
 const {
   isExporting, exportProgress, exportStep, exportError, exportBackup,
-  cloudPrompt, cloudShareError, shareToCloud, dismissCloudPrompt,
+  cloudPrompt, dismissCloudPrompt,
   isImporting, importProgress, importStep, importError, importSuccess,
   importConfirming, startImportConfirm, cancelImport, importBackup,
   lastBackupAt, lastBackupLabel,
 } = useBackup()
 
-const canShareFiles = computed(() => {
-  if (!cloudPrompt.value || !import.meta.client) return false
-  if (!('share' in navigator)) return false
-  // 실제 모바일 UA에서만 활성화 — 데스크탑 브라우저는 canShare가 true여도 파일 공유 불가
-  if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return false
-  try {
-    const f = new File([cloudPrompt.value.blob], cloudPrompt.value.filename, { type: 'application/zip' })
-    return navigator.canShare?.({ files: [f] }) ?? false
-  } catch { return false }
-})
 
 // ── 파일 입력 ─────────────────────────────────────────────────────────────────
 
@@ -547,41 +522,15 @@ function onFileSelected(e: Event): void {
 .cloud-prompt__msg {
   font-size: 0.875rem;
   color: var(--color-orange-text);
-  margin-bottom: var(--space-3);
-  font-weight: 500;
-}
-
-.cloud-prompt__actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.cloud-prompt__share-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-orange-border);
-  background: #fff;
-  color: var(--color-orange-text);
-  font-size: 0.875rem;
   font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-
-  &:hover { background: var(--color-orange-hover); }
-  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  margin-bottom: var(--space-1);
 }
 
-.cloud-prompt__error {
-  margin-top: var(--space-2);
+.cloud-prompt__hint {
   font-size: 0.8125rem;
-  color: var(--color-error-dark, #c92a2a);
+  color: var(--color-orange-text);
+  margin-bottom: var(--space-3);
+  line-height: 1.5;
 }
 
 .cloud-prompt__dismiss-btn {
