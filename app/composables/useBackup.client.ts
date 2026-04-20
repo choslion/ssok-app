@@ -56,6 +56,9 @@ const importError      = ref<string | null>(null)
 const importSuccess    = ref(false)
 const importConfirming = ref(false)
 
+// Phase B: 클라우드 저장 제안용 — export 완료 후 blob 보존
+const cloudPrompt = ref<{ blob: Blob; filename: string } | null>(null)
+
 // 마지막 백업 시각 — IndexedDB settings 스토어에서 로드
 const lastBackupAt = ref<string | null>(null)
 const lastBackupLabel = computed(() =>
@@ -160,6 +163,9 @@ async function exportBackup(): Promise<void> {
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
+    // Phase B: blob 보존 → 클라우드 저장 제안 표시
+    cloudPrompt.value = { blob: zipBlob, filename }
+
     exportProgress.value = 100
     exportStep.value = '완료!'
     const nowIso = now.toISOString()
@@ -174,6 +180,26 @@ async function exportBackup(): Promise<void> {
     isExporting.value = false
     exportProgress.value = 0
     exportStep.value = '준비 중…'
+  }
+}
+
+// ── Phase B: 클라우드 저장 제안 ──────────────────────────────────────────────
+
+function dismissCloudPrompt(): void {
+  cloudPrompt.value = null
+}
+
+async function shareToCloud(): Promise<void> {
+  if (!cloudPrompt.value) return
+  const { blob, filename } = cloudPrompt.value
+  const file = new File([blob], filename, { type: 'application/zip' })
+  try {
+    await navigator.share({ files: [file] })
+  } catch (err) {
+    // AbortError = 유저 취소, NotAllowedError = 환경 미지원 — 둘 다 오류 아님
+    if (err instanceof Error && err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+      console.error('[backup] 클라우드 공유 오류:', err)
+    }
   }
 }
 
@@ -407,6 +433,10 @@ export const useBackup = () => {
     exportStep:     readonly(exportStep),
     exportError:    readonly(exportError),
     exportBackup,
+    // Phase B: 클라우드 저장 제안
+    cloudPrompt:        readonly(cloudPrompt),
+    shareToCloud,
+    dismissCloudPrompt,
     // 가져오기
     isImporting:      readonly(isImporting),
     importProgress:   readonly(importProgress),

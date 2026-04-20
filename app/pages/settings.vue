@@ -50,6 +50,32 @@
 
         <p v-if="exportError" class="op-message op-message--error" role="alert">{{ exportError }}</p>
 
+        <!-- Phase B: 클라우드 저장 제안 -->
+        <div v-if="cloudPrompt && canShareFiles" class="cloud-prompt" role="status" aria-live="polite">
+          <p class="cloud-prompt__msg">파일이 저장됐어요. 클라우드에도 보관할까요?</p>
+          <div class="cloud-prompt__actions">
+            <button
+              v-if="canShareFiles"
+              type="button"
+              class="cloud-prompt__share-btn"
+              @click="shareToCloud"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              클라우드에 저장
+            </button>
+            <button
+              type="button"
+              class="cloud-prompt__dismiss-btn"
+              @click="dismissCloudPrompt"
+            >괜찮아요, 로컬에 보관할게요</button>
+          </div>
+        </div>
+
         <p id="export-desc" class="settings-card__hint">
           영수증 이미지를 포함한 모든 데이터를 하나의 파일로 내보냅니다.
         </p>
@@ -299,10 +325,22 @@ function trapFocus(e: KeyboardEvent): void {
 
 const {
   isExporting, exportProgress, exportStep, exportError, exportBackup,
+  cloudPrompt, shareToCloud, dismissCloudPrompt,
   isImporting, importProgress, importStep, importError, importSuccess,
   importConfirming, startImportConfirm, cancelImport, importBackup,
   lastBackupAt, lastBackupLabel,
 } = useBackup()
+
+const canShareFiles = computed(() => {
+  if (!cloudPrompt.value || !import.meta.client) return false
+  if (!('share' in navigator)) return false
+  // 실제 모바일 UA에서만 활성화 — 데스크탑 브라우저는 canShare가 true여도 파일 공유 불가
+  if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return false
+  try {
+    const f = new File([cloudPrompt.value.blob], cloudPrompt.value.filename, { type: 'application/zip' })
+    return navigator.canShare?.({ files: [f] }) ?? false
+  } catch { return false }
+})
 
 // ── 파일 입력 ─────────────────────────────────────────────────────────────────
 
@@ -494,6 +532,64 @@ function onFileSelected(e: Event): void {
     border-radius: 2px;
     transition: width 0.3s ease;
   }
+}
+
+// ── Phase B: 클라우드 저장 제안 ──────────────────────────────────────────────
+
+.cloud-prompt {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-orange-tint);
+  border: 1px solid var(--color-orange-border);
+}
+
+.cloud-prompt__msg {
+  font-size: 0.875rem;
+  color: var(--color-orange-text);
+  margin-bottom: var(--space-3);
+  font-weight: 500;
+}
+
+.cloud-prompt__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cloud-prompt__share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-orange-border);
+  background: #fff;
+  color: var(--color-orange-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+
+  &:hover { background: var(--color-orange-hover); }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+}
+
+.cloud-prompt__dismiss-btn {
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--color-sub);
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+
+  &:hover { color: var(--color-text); }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 }
 
 // ── 상태 메시지 ───────────────────────────────────────────────────────────────
