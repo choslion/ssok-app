@@ -2,7 +2,10 @@
   <div class="expiring-page">
 
     <div class="expiring-page__header">
-      <h1 class="expiring-page__title">만료 임박</h1>
+      <div class="expiring-page__title-row">
+        <h1 class="expiring-page__title">만료 임박</h1>
+        <span v-if="!loading && expiring.length" class="expiring-page__count-badge" aria-label="만료 임박 항목 수">{{ expiring.length }}개</span>
+      </div>
       <p class="expiring-page__sub">보증 기간이 30일 이내에 끝나는 항목입니다.</p>
     </div>
 
@@ -27,23 +30,59 @@
     </div>
 
     <!-- 카드 목록 -->
-    <ul v-else ref="cardListRef" class="card-list" aria-label="만료 임박 항목 목록">
-      <li v-for="item in expiring" :key="item.id" class="card-list__item">
-        <ItemCard :item="item" :to="{ path: '/item/' + item.id, query: { from: 'expiring' } }">
-          <template #badge>
-            <span
-              class="d-badge"
-              :class="diffDays(item.warrantyUntil!) <= 7 ? 'd-badge--urgent' : 'd-badge--warn'"
-            >D-{{ diffDays(item.warrantyUntil!) }}</span>
-          </template>
-          <template #footer-left>
-            <span class="expiry-label">
-              만료일: <strong>{{ formatDate(item.warrantyUntil!) }}</strong>
-            </span>
-          </template>
-        </ItemCard>
-      </li>
-    </ul>
+    <div v-else ref="cardListRef" class="sections">
+
+      <!-- 긴급 섹션 (D-0 ~ D-7) -->
+      <section v-if="urgentItems.length" aria-labelledby="section-urgent">
+        <h2 id="section-urgent" class="section-heading section-heading--urgent">
+          <span class="section-heading__dot" aria-hidden="true"></span>
+          긴급
+          <span class="section-heading__count" aria-label="긴급 항목 수">{{ urgentItems.length }}개</span>
+        </h2>
+        <ul class="card-list" aria-label="긴급 만료 항목 목록">
+          <li v-for="item in urgentItems" :key="item.id" class="card-list__item">
+            <ItemCard :item="item" :to="{ path: '/item/' + item.id, query: { from: 'expiring' } }">
+              <template #badge>
+                <span class="d-badge d-badge--urgent" :aria-label="dBadgeLabel(item.warrantyUntil!)">
+                  {{ dBadgeText(item.warrantyUntil!) }}
+                </span>
+              </template>
+              <template #footer-left>
+                <span class="expiry-label">
+                  만료일: <strong>{{ formatDate(item.warrantyUntil!) }}</strong>
+                </span>
+              </template>
+            </ItemCard>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 주의 섹션 (D-8 ~ D-30) -->
+      <section v-if="warnItems.length" aria-labelledby="section-warn">
+        <h2 id="section-warn" class="section-heading section-heading--warn">
+          <span class="section-heading__dot" aria-hidden="true"></span>
+          주의
+          <span class="section-heading__count" aria-label="주의 항목 수">{{ warnItems.length }}개</span>
+        </h2>
+        <ul class="card-list" aria-label="주의 만료 항목 목록">
+          <li v-for="item in warnItems" :key="item.id" class="card-list__item">
+            <ItemCard :item="item" :to="{ path: '/item/' + item.id, query: { from: 'expiring' } }">
+              <template #badge>
+                <span class="d-badge d-badge--warn" :aria-label="dBadgeLabel(item.warrantyUntil!)">
+                  {{ dBadgeText(item.warrantyUntil!) }}
+                </span>
+              </template>
+              <template #footer-left>
+                <span class="expiry-label">
+                  만료일: <strong>{{ formatDate(item.warrantyUntil!) }}</strong>
+                </span>
+              </template>
+            </ItemCard>
+          </li>
+        </ul>
+      </section>
+
+    </div>
 
   </div>
 </template>
@@ -57,19 +96,17 @@ const { items, loadItems } = useItems()
 const { markSeen } = useExpiryNotice()
 const loading = ref(true)
 const cardListRef = ref<HTMLElement | null>(null)
-const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, ':scope > .card-list__item')
+const { runEntrance: runCardEntrance } = useCardEntrance(cardListRef, '.card-list__item')
 
 onMounted(async () => {
   markSeen()
   await loadItems()
   loading.value = false
 
-  // 카드 stagger 진입 애니메이션
   if (expiring.value.length) await runCardEntrance()
 })
 
 // ── 필터 + 정렬 ──────────────────────────────────────────────────────────────
-// 만료일까지 0–30일 남은 항목만, 오름차순(가장 임박한 순)
 
 function diffDays(endDate: string): number {
   return Math.floor((new Date(endDate).getTime() - Date.now()) / 86_400_000)
@@ -87,6 +124,21 @@ const expiring = computed<Item[]>(() =>
     )
 )
 
+const urgentItems = computed<Item[]>(() => expiring.value.filter(i => diffDays(i.warrantyUntil!) <= 7))
+const warnItems   = computed<Item[]>(() => expiring.value.filter(i => diffDays(i.warrantyUntil!) > 7))
+
+// ── D-배지 텍스트 ──────────────────────────────────────────────────────────────
+
+function dBadgeText(endDate: string): string {
+  const d = diffDays(endDate)
+  return d === 0 ? '오늘 만료' : `D-${d}`
+}
+
+function dBadgeLabel(endDate: string): string {
+  const d = diffDays(endDate)
+  return d === 0 ? '오늘 만료' : `만료까지 ${d}일`
+}
+
 </script>
 
 <style scoped lang="scss">
@@ -97,11 +149,28 @@ const expiring = computed<Item[]>(() =>
     margin-bottom: var(--space-5);
   }
 
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+  }
+
   &__title {
     font-size: 1.5rem;
     font-weight: 800;
     color: var(--color-text);
-    margin-bottom: var(--space-1);
+  }
+
+  &__count-badge {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--color-orange-text);
+    background: var(--color-orange-tint);
+    border: 1px solid var(--color-orange-border);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-2);
+    line-height: 1.4;
   }
 
   &__sub {
@@ -158,6 +227,48 @@ const expiring = computed<Item[]>(() =>
     border-radius: var(--radius-full);
     transition: background var(--transition-fast);
     &:hover { background: rgba(255, 107, 0, 0.06); }
+  }
+}
+
+// ── 섹션 ──────────────────────────────────────────────────────────────────────
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-3);
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__count {
+    font-weight: 500;
+    margin-left: auto;
+  }
+
+  &--urgent {
+    color: #C92A2A;
+    .section-heading__dot { background: #C92A2A; }
+    .section-heading__count { color: #C92A2A; }
+  }
+
+  &--warn {
+    color: #E8590C;
+    .section-heading__dot { background: #E8590C; }
+    .section-heading__count { color: #E8590C; }
   }
 }
 
