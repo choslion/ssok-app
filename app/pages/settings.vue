@@ -249,7 +249,13 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '설정 · SSOK' })
+useHead({
+  title: '설정 · SSOK',
+  meta: [
+    { property: 'og:title', content: '설정 · SSOK' },
+    { name: 'description', content: 'SSOK 데이터 백업·복원 및 앱 설정 관리.' },
+  ],
+})
 
 // ── Pro 기능 ──────────────────────────────────────────────────────────────────
 

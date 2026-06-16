@@ -223,7 +223,13 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '보관함 · SSOK' })
+useHead({
+  title: '보관함 · SSOK',
+  meta: [
+    { property: 'og:title', content: '보관함 · SSOK' },
+    { name: 'description', content: '공간별로 영수증·보증서·설명서를 보관하세요. 거실, 주방 등 장소별로 정리할 수 있어요.' },
+  ],
+})
 import type { Item, ItemDocType } from '~~/shared/types/ssok'
 import { TYPE_LABELS } from '~~/shared/utils/format'
 

@@ -92,10 +92,49 @@
 const route = useRoute()
 const { hasUnread, markSeen } = useExpiryNotice()
 
-// /expiring 방문 시 빨간 점 제거
 watch(() => route.path, path => {
   if (path === '/expiring') markSeen()
 }, { immediate: true })
+
+const BASE_DESC = 'SSOK — 영수증·보증서·설명서를 사진으로 찍어 디지털 서랍에 보관하는 무료 앱. OCR 자동 인식, 보증 만료 D-Day 알림, 완전한 개인정보 보호.'
+
+useHead({
+  htmlAttrs: { lang: 'ko' },
+  meta: [
+    { name: 'description', content: BASE_DESC },
+    { property: 'og:site_name', content: 'SSOK' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:description', content: BASE_DESC },
+    // og:image 는 절대 URL이 필요하므로 커스텀 도메인 연결 후 교체
+    { property: 'og:image', content: '/pwa-512x512.png' },
+    { name: 'twitter:card', content: 'summary' },
+    { name: 'twitter:description', content: BASE_DESC },
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'SSOK',
+        alternateName: '쏙',
+        description: '종이 영수증·보증서·설명서를 사진으로 찍어 스마트폰에 쏙! 보관하는 디지털 서랍 앱.',
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'Web Browser, iOS, Android',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'KRW' },
+        featureList: [
+          '영수증 OCR 자동 인식',
+          '보증 만료 D-Day 알림',
+          '오프라인 사용 가능 (PWA)',
+          '로컬 데이터 백업 및 복원',
+          '장소별 보관함 관리',
+        ],
+        inLanguage: 'ko',
+        isAccessibleForFree: true,
+      }),
+    },
+  ],
+})
 </script>
 
 <style scoped lang="scss">

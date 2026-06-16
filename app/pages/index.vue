@@ -65,11 +65,72 @@
       <button class="empty-state__reset" @click="resetFilter">전체 보기</button>
     </div>
 
-    <!-- 첫 방문 빈 상태 -->
-    <div v-else-if="!loading" class="empty-state">
-      <p class="empty-state__tagline">서랍 속 골칫거리 영수증과 설명서,<br>내 폰 안에 쏙!</p>
-      <p class="empty-state__hint">하단 + 버튼을 눌러 첫 항목을 추가해 보세요.</p>
-    </div>
+    <!-- 첫 방문 랜딩 -->
+    <section v-else-if="!loading" class="landing" aria-label="SSOK 소개">
+
+      <!-- 히어로 -->
+      <div class="landing__hero">
+        <p class="landing__tagline">종이는 버리고,<br><strong class="landing__tagline-bold">정보만 쏙!</strong></p>
+        <p class="landing__desc">영수증·보증서·설명서를 사진으로 찍어<br>디지털 서랍에 깔끔하게 보관하세요.</p>
+        <NuxtLink to="/add" class="landing__cta" aria-label="첫 항목 추가하러 가기">
+          첫 항목 추가하기
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </NuxtLink>
+      </div>
+
+      <!-- 주요 기능 3선 -->
+      <ul class="landing__features" aria-label="주요 기능">
+        <li class="landing__feature">
+          <div class="landing__feature-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <strong class="landing__feature-title">OCR 자동 인식</strong>
+            <p class="landing__feature-desc">영수증을 찍으면 금액·날짜·구매처를 자동으로 읽어드려요.</p>
+          </div>
+        </li>
+        <li class="landing__feature">
+          <div class="landing__feature-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <strong class="landing__feature-title">보증 만료 D-Day 알림</strong>
+            <p class="landing__feature-desc">보증 기간이 끝나기 30일 전부터 D-Day로 알려드려요.</p>
+          </div>
+        </li>
+        <li class="landing__feature">
+          <div class="landing__feature-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <strong class="landing__feature-title">완전한 개인정보 보호</strong>
+            <p class="landing__feature-desc">모든 데이터는 내 기기에만 저장돼요. 어디에도 전송되지 않아요.</p>
+          </div>
+        </li>
+      </ul>
+
+      <!-- FAQ -->
+      <section class="landing__faq" aria-labelledby="landing-faq-heading">
+        <h2 id="landing-faq-heading" class="landing__faq-heading">자주 묻는 질문</h2>
+        <details class="faq-item">
+          <summary class="faq-item__q">SSOK은 무엇인가요?</summary>
+          <p class="faq-item__a">SSOK(쏙)은 종이 영수증, 보증서, 설명서를 사진으로 찍어 스마트폰에 디지털로 보관하는 무료 앱입니다. 나중에 필요할 때 언제든 꺼내볼 수 있어요.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">데이터는 어디에 저장되나요?</summary>
+          <p class="faq-item__a">모든 데이터는 내 기기(브라우저 저장소)에만 저장됩니다. 외부 서버로 전송되지 않으며 인터넷 연결 없이도 이미 저장된 항목을 볼 수 있어요.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">오프라인에서도 사용할 수 있나요?</summary>
+          <p class="faq-item__a">네, SSOK은 PWA(Progressive Web App)로 홈 화면에 설치하면 인터넷 없이도 사용할 수 있습니다. 브라우저 메뉴에서 '홈 화면에 추가'를 눌러보세요.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">보증서 만료일을 어떻게 관리하나요?</summary>
+          <p class="faq-item__a">항목 추가 시 보증 만료일을 입력하면, 30일 전부터 '보증 알림' 탭에서 D-Day로 알려드립니다. 긴급(D-7 이내)과 주의(D-30 이내)를 구분해서 보여드려요.</p>
+        </details>
+      </section>
+
+    </section>
 
   </div>
 
@@ -97,9 +158,46 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '홈 · SSOK' })
+useHead({
+  title: 'SSOK — 내 디지털 서랍',
+  meta: [
+    { property: 'og:title', content: 'SSOK — 영수증·보증서·설명서를 한 곳에' },
+    { name: 'twitter:title', content: 'SSOK — 영수증·보증서·설명서를 한 곳에' },
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'SSOK은 무엇인가요?',
+            acceptedAnswer: { '@type': 'Answer', text: 'SSOK(쏙)은 종이 영수증, 보증서, 설명서를 사진으로 찍어 스마트폰에 디지털로 보관하는 무료 앱입니다.' },
+          },
+          {
+            '@type': 'Question',
+            name: '데이터는 어디에 저장되나요?',
+            acceptedAnswer: { '@type': 'Answer', text: '모든 데이터는 내 기기(브라우저 저장소)에만 저장됩니다. 외부 서버로 전송되지 않습니다.' },
+          },
+          {
+            '@type': 'Question',
+            name: '오프라인에서도 사용할 수 있나요?',
+            acceptedAnswer: { '@type': 'Answer', text: 'SSOK은 PWA(Progressive Web App)로 홈 화면에 설치하면 인터넷 없이도 사용할 수 있습니다.' },
+          },
+          {
+            '@type': 'Question',
+            name: '보증서 만료일을 어떻게 관리하나요?',
+            acceptedAnswer: { '@type': 'Answer', text: '항목 추가 시 보증 만료일을 입력하면, 30일 전부터 보증 알림 탭에서 D-Day로 알려드립니다.' },
+          },
+        ],
+      }),
+    },
+  ],
+})
 import type { Item, ItemDocType } from '~~/shared/types/ssok'
-import { TYPE_LABELS, formatDate, formatAmount, warrantyStatus } from '~~/shared/utils/format'
+import { TYPE_LABELS } from '~~/shared/utils/format'
 
 // loadItems()는 items store 메타데이터만 읽음 — Blob 로드 없음
 const { items, loadItems } = useItems()
@@ -434,6 +532,172 @@ function resetFilter(): void {
   &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 }
 
+// ── 랜딩 (첫 방문 빈 상태) ────────────────────────────────────────────────────
+
+.landing {
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+
+  &__hero {
+    background: var(--color-orange-tint-deep);
+    border: 1px solid var(--color-orange-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: flex-start;
+  }
+
+  &__tagline {
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  &__tagline-bold {
+    color: var(--color-primary);
+    font-weight: 900;
+  }
+
+  &__desc {
+    font-size: 0.9375rem;
+    color: var(--color-sub);
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  &__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-full);
+    text-decoration: none;
+    transition: opacity var(--transition-fast);
+    min-height: 44px;
+
+    &:hover { opacity: 0.88; }
+    &:focus-visible { outline: 3px solid rgba(var(--color-primary-rgb), 0.4); outline-offset: 3px; }
+  }
+
+  &__features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__feature {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+
+  &__feature-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--color-orange-tint);
+    border: 1px solid var(--color-orange-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+  }
+
+  &__feature-title {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-1);
+  }
+
+  &__feature-desc {
+    font-size: 0.8125rem;
+    color: var(--color-sub);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  &__faq {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  &__faq-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-3);
+  }
+}
+
+// ── FAQ 아이템 ─────────────────────────────────────────────────────────────────
+
+.faq-item {
+  border-top: 1px solid var(--color-border);
+
+  &:last-child { border-bottom: 1px solid var(--color-border); }
+
+  &__q {
+    display: block;
+    width: 100%;
+    padding: var(--space-4) 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    padding-right: var(--space-6);
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%23868E96' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+      transition: transform var(--transition-fast);
+    }
+
+    &::-webkit-details-marker { display: none; }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 2px; }
+  }
+
+  &__a {
+    font-size: 0.875rem;
+    color: var(--color-sub);
+    line-height: 1.7;
+    padding-bottom: var(--space-4);
+    margin: 0;
+  }
+
+  &[open] .faq-item__q::after {
+    transform: translateY(-50%) rotate(180deg);
+  }
+}
+
 // ── 빈 상태 ──────────────────────────────────────────────────────────────────
 
 .empty-state {
@@ -444,18 +708,6 @@ function resetFilter(): void {
   padding: var(--space-7) var(--space-5);
   text-align: center;
   gap: var(--space-4);
-
-  &__tagline {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--color-text);
-    line-height: 1.6;
-  }
-
-  &__hint {
-    font-size: 0.875rem;
-    color: var(--color-sub);
-  }
 
   &__text {
     font-size: 0.9375rem;
