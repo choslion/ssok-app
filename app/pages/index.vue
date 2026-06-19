@@ -158,44 +158,8 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: 'SSOK — 내 디지털 서랍',
-  meta: [
-    { property: 'og:title', content: 'SSOK — 영수증·보증서·설명서를 한 곳에' },
-    { name: 'twitter:title', content: 'SSOK — 영수증·보증서·설명서를 한 곳에' },
-  ],
-  script: [
-    {
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: [
-          {
-            '@type': 'Question',
-            name: 'SSOK은 무엇인가요?',
-            acceptedAnswer: { '@type': 'Answer', text: 'SSOK(쏙)은 종이 영수증, 보증서, 설명서를 사진으로 찍어 스마트폰에 디지털로 보관하는 무료 앱입니다.' },
-          },
-          {
-            '@type': 'Question',
-            name: '데이터는 어디에 저장되나요?',
-            acceptedAnswer: { '@type': 'Answer', text: '모든 데이터는 내 기기(브라우저 저장소)에만 저장됩니다. 외부 서버로 전송되지 않습니다.' },
-          },
-          {
-            '@type': 'Question',
-            name: '오프라인에서도 사용할 수 있나요?',
-            acceptedAnswer: { '@type': 'Answer', text: 'SSOK은 PWA(Progressive Web App)로 홈 화면에 설치하면 인터넷 없이도 사용할 수 있습니다.' },
-          },
-          {
-            '@type': 'Question',
-            name: '보증서 만료일을 어떻게 관리하나요?',
-            acceptedAnswer: { '@type': 'Answer', text: '항목 추가 시 보증 만료일을 입력하면, 30일 전부터 보증 알림 탭에서 D-Day로 알려드립니다.' },
-          },
-        ],
-      }),
-    },
-  ],
-})
+// 홈 title은 nuxt.config.ts app.head의 글로벌 title('SSOK — 내 디지털 서랍')을 그대로 사용.
+// FAQPage·SoftwareApplication JSON-LD, OG/meta도 app.head에 정의됨.
 import type { Item, ItemDocType } from '~~/shared/types/ssok'
 import { TYPE_LABELS } from '~~/shared/utils/format'
 
