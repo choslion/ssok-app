@@ -24,7 +24,7 @@
           :value="search"
           class="toolbar__search"
           type="search"
-          placeholder="제품명, 구매처 검색"
+          placeholder="제품명, 구매처, 공간 검색"
           aria-label="항목 검색"
           maxlength="15"
           @input="search = ($event.target as HTMLInputElement).value"
@@ -279,9 +279,11 @@ const filtered = computed<Item[]>(() => {
       if (!hasType) return false
     }
     if (q) {
-      const inTitle = item.title.toLowerCase().includes(q)
-      const inStore = (item.store ?? '').toLowerCase().includes(q)
-      if (!inTitle && !inStore) return false
+      const haystack = [item.title, item.store, item.space, item.topic]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!haystack.includes(q)) return false
     }
     return true
   })

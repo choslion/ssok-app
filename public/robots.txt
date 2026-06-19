@@ -1,2 +1,4 @@
 User-Agent: *
 Disallow:
+
+Sitemap: https://d34preqwbcth2m.cloudfront.net/sitemap.xml
