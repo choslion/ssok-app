@@ -1148,6 +1148,20 @@ function validate(): boolean {
   return Object.keys(errors).length === 0
 }
 
+// ── 저장 공간 보호 ─────────────────────────────────────────────────────────────
+
+// 브라우저는 저장 공간이 부족하거나 오래 방문하지 않은 사이트의 데이터를 지운다.
+// (사파리는 7일, 크롬은 용량 부족 시) SSOK은 데이터가 전부인 앱이므로
+// 첫 저장에 성공한 뒤 "지우지 말라"고 요청해 둔다.
+// 크롬은 홈 화면에 설치된 앱이면 묻지 않고 승인하고, 파이어폭스는 사용자에게 묻는다.
+async function requestPersistentStorage(): Promise<void> {
+  try {
+    if (!navigator.storage?.persist) return
+    if (await navigator.storage.persisted()) return  // 이미 보호 중
+    await navigator.storage.persist()
+  } catch { /* 지원하지 않는 브라우저 — 무시 */ }
+}
+
 // ── submit ────────────────────────────────────────────────────────────────────
 
 async function submit(): Promise<void> {
@@ -1179,12 +1193,9 @@ async function submit(): Promise<void> {
       ...(form.price != null && form.price > 0 && { price: form.price }),
     }
 
-    await saveItem(item)
-
-    // 직접 입력한 공간/제품이 있으면 다음 방문 시 칩으로 표시되도록 저장
-    if (spaceCustom.value.trim()) addCustomSpace(spaceCustom.value.trim())
-    if (topicCustom.value.trim()) addCustomTopic(topicCustom.value.trim())
-
+    // 첨부를 먼저 저장하고 항목을 마지막에 저장한다.
+    // 중간에 실패(저장 공간 부족 등)해도 항목이 만들어지지 않으므로
+    // 첨부가 없는 반쪽짜리 항목이 목록에 남지 않는다.
     for (const pf of pendingFiles.value) {
       const attachment: Attachment = {
         id: pf.id,
@@ -1209,6 +1220,16 @@ async function submit(): Promise<void> {
         })
       }
     }
+
+    await saveItem(item)
+
+    // 직접 입력한 공간/제품이 있으면 다음 방문 시 칩으로 표시되도록 저장
+    if (spaceCustom.value.trim()) addCustomSpace(spaceCustom.value.trim())
+    if (topicCustom.value.trim()) addCustomTopic(topicCustom.value.trim())
+
+    // 저장에 성공했으니 브라우저에 "이 데이터는 지우지 말라"고 요청한다.
+    // 실패해도 저장 자체에는 영향이 없으므로 결과를 기다리지 않는다.
+    requestPersistentStorage()
 
     await router.push('/')
   } catch (err) {

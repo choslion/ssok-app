@@ -26,8 +26,12 @@ export function formatAmount(n: number): string {
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
 
+/** 오늘 날짜를 "YYYY-MM-DD"로 반환 — 사용자의 로컬 시간 기준.
+ *  toISOString()은 UTC라 한국(UTC+9) 새벽 0~9시에 어제 날짜를 돌려준다. */
 export function todayIso(): string {
-  return new Date().toISOString().split('T')[0] ?? ''
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 /** 구매일 문자열을 유효 범위(1900 ~ 올해)로 클램핑 */
